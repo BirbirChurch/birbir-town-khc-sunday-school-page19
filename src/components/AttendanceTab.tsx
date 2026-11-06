@@ -1213,7 +1213,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                       ተ.ቁ
                     </th>
                     <th className="py-2.5 px-3 border-r border-slate-200 min-w-[240px] text-left text-[12pt] font-extrabold text-slate-900 sticky left-[48px] bg-slate-100 z-40 print:static print:bg-slate-200 print:border-slate-900">
-                      የተማሪው ሙሉ ስም (12pt)
+                      የተማሪው ሙሉ ስም
                     </th>
                     <th className="py-2 px-1 border-r border-slate-200 min-w-[65px] sticky left-[288px] bg-slate-100 z-40 print:static print:bg-slate-200 print:border-slate-900">
                       <div className="flex flex-col items-center justify-center gap-0.5">
@@ -1417,23 +1417,23 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
 
                           {/* Total Present */}
                           <td className="py-2 px-1 border-r border-slate-200 bg-emerald-50/30 text-emerald-800 font-bold print:border-slate-900">
-                            {st.present}
+                            <span className="print:hidden">{st.present}</span>
                           </td>
 
                           {/* Total Absent */}
                           <td className="py-2 px-1 border-r border-slate-200 bg-rose-50/30 text-rose-800 font-bold print:border-slate-900">
-                            {st.absent}
+                            <span className="print:hidden">{st.absent}</span>
                           </td>
 
                           {/* Total Excused */}
                           <td className="py-2 px-1 border-r border-slate-200 bg-amber-50/30 text-amber-800 font-bold print:border-slate-900">
-                            {st.excused}
+                            <span className="print:hidden">{st.excused}</span>
                           </td>
 
                           {/* Rate % */}
                           <td className="py-2 px-1 bg-blue-50/40 print:border-slate-900">
                             <span
-                              className={`font-black inline-block px-1 py-0.5 rounded text-[10px] ${
+                              className={`font-black inline-block px-1 py-0.5 rounded text-[10px] print:hidden ${
                                 st.rate >= 80
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : st.rate >= 50
