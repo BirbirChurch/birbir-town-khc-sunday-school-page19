@@ -923,7 +923,7 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
                   ተ.ቁ
                 </th>
                 <th className="py-3 px-3 border-r border-slate-200 min-w-[240px] text-left sticky left-12 z-30 bg-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] print:static print:shadow-none print:border-slate-400 text-[12pt] font-extrabold text-slate-900">
-                  የተማሪው ሙሉ ስም (12pt)
+                  የተማሪው ሙሉ ስም
                 </th>
                 <th className="py-2 px-1 border-r border-slate-200 min-w-[72px]">
                   <div className="flex flex-col items-center justify-center gap-0.5">

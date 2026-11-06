@@ -1892,7 +1892,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                           {idx + 1}
                         </span>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-xs">{student.name}</h4>
+                          <h4 className="font-bold text-slate-900 text-[12pt]">{student.name}</h4>
                           <span
                             className={`text-[11px] font-semibold ${
                               student.gender === 'ወ'
@@ -2118,7 +2118,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                         <td className="py-2.5 px-3 border-r border-slate-200 font-semibold text-blue-900">
                           {rec.className}
                         </td>
-                        <td className="py-2.5 px-4 border-r border-slate-200 text-left font-bold text-slate-900">
+                        <td className="py-2.5 px-4 border-r border-slate-200 text-left font-bold text-[12pt] text-slate-900">
                           {rec.studentName}
                         </td>
                         <td className="py-2.5 px-3 border-r border-slate-200">

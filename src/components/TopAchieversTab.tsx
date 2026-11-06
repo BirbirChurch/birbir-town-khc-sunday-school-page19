@@ -185,7 +185,7 @@ export const TopAchieversTab: React.FC<TopAchieversTabProps> = ({
                         {item.rank}ኛ
                       </span>
                     </td>
-                    <td className="py-2.5 px-4 border-r border-slate-200 text-left font-bold text-slate-900">
+                    <td className="py-2.5 px-4 border-r border-slate-200 text-left font-bold text-[12pt] text-slate-900 min-w-[200px]">
                       {item.name}
                     </td>
                     <td className="py-2.5 px-3 border-r border-slate-200">
