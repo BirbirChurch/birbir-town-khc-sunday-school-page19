@@ -1,0 +1,6 @@
+{
+  "name": "የብርብር ከተማ ቃለ ሕይወት ቤተክርስቲያን - የልጆች አገልግሎት",
+  "description": "የብርብር ከተማ ቃለ ሕይወት ቤተክርስቲያን የልጆች አገልግሎት ዘርፍ የመረጃ፣ የውጤትና የዕቅድ ማኔጅመንት ሲስተም (Birbir Town KHC Children's Ministry Management System)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
