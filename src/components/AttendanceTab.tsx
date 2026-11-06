@@ -185,8 +185,8 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
     return Array.from({ length: 40 }, (_, i) => i + 1); // 1-40 (ሁሉም)
   }, [quarterFilter]);
 
-  // Standard 40 rows per class: guaranteed minimum 40 rows!
-  const TARGET_ROWS_COUNT = 40;
+  // Standard 50 rows per class: guaranteed minimum 50 rows per class!
+  const TARGET_ROWS_COUNT = 50;
   const totalDisplayRows = useMemo(() => {
     if (searchStudent.trim() && !isPrinting) {
       return filteredClassStudents.length;
@@ -793,12 +793,12 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
       <div className="hidden print:block text-center pb-3 mb-3 border-b-2 border-slate-900">
         <h1 className="text-xl font-black text-slate-950">የብርብር ከተማ ቃለ ሕይወት ቤተክርስቲያን</h1>
         <h2 className="text-base font-extrabold text-slate-900">
-          የልጆች አገልግሎት ዘርፍ - የሰንበት ትምህርት የ40 ሳምንታት የተማሪዎች መገኘት መዝገብ (40 መስመሮች)
+          የልጆች አገልግሎት ዘርፍ - የሰንበት ትምህርት የ40 ሳምንታት የተማሪዎች መገኘት መዝገብ (50 መስመሮች)
         </h2>
         <div className="flex justify-between items-center text-xs mt-2.5 font-bold px-2 text-slate-900">
           <span>የትምህርት ዘመን፦ {currentYear} ዓ.ም</span>
           <span>ክፍል፦ {selectedClass}</span>
-          <span>የክፍሉ ተማሪዎች፦ {classStudents.length} / 40 መስመር</span>
+          <span>የክፍሉ ተማሪዎች፦ {classStudents.length} / 50 መስመር</span>
           <span>አማካይ የመገኘት ምጣኔ፦ {overallClassStats.avgRate}%</span>
         </div>
         <p className="text-[10px] text-slate-700 mt-1">
@@ -839,7 +839,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                 }`}
               >
                 <Calendar className="w-3.5 h-3.5" />
-                የ40 ሳምንት መዝገብ (40 መስመር)
+                የ40 ሳምንት መዝገብ (50 መስመር)
               </button>
 
               <button
@@ -980,7 +980,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
             <div>
               <p className="text-slate-500 text-[11px] font-medium">በመዝገብ ያሉ ተማሪዎች</p>
               <p className="text-base font-bold text-slate-800">
-                {classStudents.length} <span className="text-xs text-slate-400 font-normal">/ 40 መስመር</span>
+                {classStudents.length} <span className="text-xs text-slate-400 font-normal">/ 50 መስመር</span>
               </p>
             </div>
             <Users className="w-5 h-5 text-slate-400" />
@@ -1008,7 +1008,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
             <div>
               <p className="text-amber-700 text-[11px] font-medium">ክፍት መስመሮች</p>
               <p className="text-xs font-bold text-amber-900 truncate">
-                {Math.max(0, 40 - classStudents.length)} ባዶ መስመሮች ዝግጁ ናቸው
+                {Math.max(0, 50 - classStudents.length)} ባዶ መስመሮች ዝግጁ ናቸው
               </p>
             </div>
             <Calendar className="w-5 h-5 text-amber-500" />
@@ -1017,7 +1017,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
       </div>
 
       {/* ============================================================== */}
-      {/* VIEW 1: 40-WEEK MASTER GRID (የ40 ሳምንት አጠቃላይ መዝገብ - 40 መስመሮች) */}
+      {/* VIEW 1: 40-WEEK MASTER GRID (የ40 ሳምንት አጠቃላይ መዝገብ - 50 መስመሮች) */}
       {/* ============================================================== */}
       {activeView === 'roster40' && (
         <div className="space-y-4">
@@ -1198,11 +1198,11 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
               </span>
             </div>
             <div className="text-[11px] font-extrabold text-blue-900 bg-blue-100/80 px-2.5 py-0.5 rounded-lg border border-blue-300">
-              40 መስመሮች • 40 ሳምንታት
+              50 መስመሮች • 40 ሳምንታት
             </div>
           </div>
 
-          {/* Master 40-Week Grid Table with 40 Rows */}
+          {/* Master 40-Week Grid Table with 50 Rows */}
           <div className="bg-white rounded-2xl border border-slate-200/90 shadow-sm overflow-hidden print:border-slate-900 print:rounded-none print:overflow-visible">
             <div className="overflow-x-auto max-h-[750px] relative print:max-h-none print:overflow-visible">
               <table className="w-full min-w-[1300px] border-collapse text-xs text-center border-spacing-0 print:min-w-full print:text-[10px]">
@@ -1730,7 +1730,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
           <div className="hidden print:block pt-6 mt-6 border-t-2 border-slate-900 text-xs font-bold text-slate-900">
             <div className="bg-slate-100 p-3 rounded-lg border border-slate-800 mb-6 flex justify-between items-center text-xs font-black">
               <span>ክፍል፦ {selectedClass}</span>
-              <span>በመዝገብ ያሉ ተማሪዎች፦ {classStudents.length} / 40</span>
+              <span>በመዝገብ ያሉ ተማሪዎች፦ {classStudents.length} / 50</span>
               <span>የክፍሉ ዓመታዊ የመገኘት ምጣኔ፦ {overallClassStats.avgRate}%</span>
             </div>
 
@@ -1856,7 +1856,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                 </span>
               </span>
               <span className="text-slate-500 font-medium">
-                የክፍል ተማሪዎች፦ {classStudents.length} / 40 መስመር
+                የክፍል ተማሪዎች፦ {classStudents.length} / 50 መስመር
               </span>
             </div>
           </div>
@@ -2247,7 +2247,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
         </div>
       )}
 
-      {/* Batch Add Modal: Paste up to 40 student names directly into this class */}
+      {/* Batch Add Modal: Paste up to 50 student names directly into this class */}
       {showBatchAddModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150">
@@ -2260,7 +2260,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                   ተማሪዎችን በአንድነት አስገባ (Batch Paste)
                 </h3>
                 <p className="text-xs text-slate-500">
-                  ክፍል፦ <span className="font-bold text-slate-800">{selectedClass}</span> (እስከ 40 መስመር ይሞላል)
+                  ክፍል፦ <span className="font-bold text-slate-800">{selectedClass}</span> (እስከ 50 መስመር ይሞላል)
                 </p>
               </div>
             </div>
@@ -2330,7 +2330,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
               </div>
 
               <p className="text-[11px] text-slate-500">
-                💡 <strong>ጠቃሚ ማስታወሻ፦</strong> ከ Word፣ Excel ወይም ከየትኛውም ቦታ የተማሪዎች ስም ኮፒ አድርገው እዚህ በመለጠፍ በአንድ ቅጽበት የክፍሉን 40 መስመሮች መሙላት ይችላሉ።
+                💡 <strong>ጠቃሚ ማስታወሻ፦</strong> ከ Word፣ Excel ወይም ከየትኛውም ቦታ የተማሪዎች ስም ኮፒ አድርገው እዚህ በመለጠፍ በአንድ ቅጽበት የክፍሉን 50 መስመሮች መሙላት ይችላሉ።
               </p>
             </div>
 
