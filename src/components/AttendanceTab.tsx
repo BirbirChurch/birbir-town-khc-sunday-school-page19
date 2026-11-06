@@ -1479,7 +1479,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                           {rowNumber}
                         </td>
 
-                        {/* Name Cell: Interactive inline editor or print blank writing line */}
+                        {/* Name Cell: Interactive inline editor or print completely blank writing line */}
                         <td className="py-1.5 px-3 border-r border-slate-200 text-left sticky left-[48px] bg-white group-hover:bg-slate-100 z-20 min-w-[240px] print:static print:border-slate-900">
                           {editingRowIndex === rowIndex ? (
                             <div className="flex items-center gap-1.5 py-0.5 print:hidden">
@@ -1526,22 +1526,18 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                                 <Plus className="w-3.5 h-3.5 text-slate-400" />
                                 <span>መስመር {rowNumber}፦ + ተማሪ ስም ጻፍ</span>
                               </div>
-                              {/* Clean dotted line for handwritten printout */}
-                              <div className="hidden print:block text-slate-400 text-[10px]">
-                                .....................................................
-                              </div>
                             </div>
                           )}
                         </td>
 
                         {/* Age */}
                         <td className="py-2 px-1 border-r border-slate-200 sticky left-[288px] bg-white group-hover:bg-slate-100 z-20 text-slate-300 min-w-[65px] print:static print:border-slate-900 text-center">
-                          -
+                          <span className="print:hidden">-</span>
                         </td>
 
                         {/* Gender */}
                         <td className="py-2 px-2 border-r border-slate-200 sticky left-[353px] bg-white group-hover:bg-slate-100 z-20 text-slate-300 w-14 print:static print:border-slate-900 text-center">
-                          -
+                          <span className="print:hidden">-</span>
                         </td>
 
                         {/* Week Cells (Empty) */}
@@ -1555,16 +1551,16 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                         ))}
 
                         <td className="py-2 px-1 border-r border-slate-200 bg-emerald-50/10 text-slate-300 print:border-slate-900">
-                          -
+                          <span className="print:hidden">-</span>
                         </td>
                         <td className="py-2 px-1 border-r border-slate-200 bg-rose-50/10 text-slate-300 print:border-slate-900">
-                          -
+                          <span className="print:hidden">-</span>
                         </td>
                         <td className="py-2 px-1 border-r border-slate-200 bg-amber-50/10 text-slate-300 print:border-slate-900">
-                          -
+                          <span className="print:hidden">-</span>
                         </td>
                         <td className="py-2 px-1 bg-blue-50/10 text-slate-300 print:border-slate-900">
-                          -
+                          <span className="print:hidden">-</span>
                         </td>
                         <td className="py-2 px-1 text-center print:hidden">
                           <span className="text-slate-300">-</span>
@@ -1574,8 +1570,8 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                   })}
                 </tbody>
 
-                {/* Table Footer: Weekly Totals Across Whole Class (Appears at end of table) */}
-                <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 text-slate-800 sticky bottom-0 z-20 print:static print:border-slate-900 print:table-row-group">
+                {/* Table Footer: Weekly Totals Across Whole Class (Appears at end of table on screen, hidden on print/PDF as requested) */}
+                <tfoot className="bg-slate-100 font-bold border-t-2 border-slate-300 text-slate-800 sticky bottom-0 z-20 print:hidden">
                   {/* Row 1: Present count */}
                   <tr className="bg-emerald-50/50 print:bg-slate-100">
                     <td
