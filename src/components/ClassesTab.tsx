@@ -922,7 +922,7 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
                 <th className="py-3 px-2 border-r border-slate-200 sticky left-0 z-30 bg-slate-100 w-12 print:static print:border-slate-400">
                   ተ.ቁ
                 </th>
-                <th className="py-3 px-3 border-r border-slate-200 min-w-[240px] text-left sticky left-12 z-30 bg-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] print:static print:shadow-none print:border-slate-400 text-[12pt] font-extrabold text-slate-900">
+                <th className="py-3 px-3 border-r border-slate-200 min-w-[240px] text-left sticky left-12 z-30 bg-slate-100 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] print:static print:shadow-none print:border-slate-400 text-[13pt] font-extrabold text-slate-900">
                   የተማሪው ሙሉ ስም
                 </th>
                 <th className="py-2 px-1 border-r border-slate-200 min-w-[72px]">
@@ -996,10 +996,10 @@ export const ClassesTab: React.FC<ClassesTabProps> = ({
                             type="text"
                             value={s.name}
                             onChange={(e) => handleInfoChange(s, 'name', e.target.value)}
-                            className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white px-1 py-0.5 rounded text-[12pt] outline-none font-bold text-slate-900 leading-normal"
+                            className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-blue-600 focus:bg-white px-1 py-0.5 rounded text-[13pt] outline-none font-bold text-slate-900 leading-normal"
                           />
                         ) : (
-                          <span className="text-[12pt] font-bold text-slate-900 leading-normal">{s.name}</span>
+                          <span className="text-[13pt] font-bold text-slate-900 leading-normal">{s.name}</span>
                         )}
                       </td>
 

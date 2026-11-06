@@ -770,7 +770,7 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
             <thead>
               <tr className="bg-slate-900 text-white uppercase text-[11px] tracking-wider print:bg-slate-800 print:text-white">
                 <th className="py-3 px-3 text-center w-12 font-bold">ተ.ቁ</th>
-                <th className="py-3 px-4 font-extrabold text-[12pt] text-white min-w-[220px]">የተማሪው ሙሉ ስም</th>
+                <th className="py-3 px-4 font-extrabold text-[13pt] text-white min-w-[220px]">የተማሪው ሙሉ ስም</th>
                 <th className="py-3 px-3 font-bold min-w-[120px]">ክፍል / ደረጃ</th>
                 <th className="py-3 px-3 text-center font-bold w-16">ጾታ</th>
                 <th className="py-3 px-3 text-center font-bold w-16">ዕድሜ</th>
@@ -807,7 +807,7 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
                       </td>
 
                       {/* Student Name */}
-                      <td className="py-2.5 px-4 font-bold text-[12pt] text-slate-900 min-w-[220px] leading-normal">
+                      <td className="py-2.5 px-4 font-bold text-[13pt] text-slate-900 min-w-[220px] leading-normal">
                         <span>{student.name}</span>
                       </td>
 

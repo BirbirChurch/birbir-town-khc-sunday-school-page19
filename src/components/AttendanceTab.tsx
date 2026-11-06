@@ -1212,7 +1212,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                     <th className="py-2.5 px-2 border-r border-slate-200 w-12 sticky left-0 bg-slate-100 z-40 print:static print:bg-slate-200 print:border-slate-900 text-center">
                       ተ.ቁ
                     </th>
-                    <th className="py-2.5 px-3 border-r border-slate-200 min-w-[240px] text-left text-[12pt] font-extrabold text-slate-900 sticky left-[48px] bg-slate-100 z-40 print:static print:bg-slate-200 print:border-slate-900">
+                    <th className="py-2.5 px-3 border-r border-slate-200 min-w-[240px] text-left text-[13pt] font-extrabold text-slate-900 sticky left-[48px] bg-slate-100 z-40 print:static print:bg-slate-200 print:border-slate-900">
                       የተማሪው ሙሉ ስም
                     </th>
                     <th className="py-2 px-1 border-r border-slate-200 min-w-[65px] sticky left-[288px] bg-slate-100 z-40 print:static print:bg-slate-200 print:border-slate-900">
@@ -1323,10 +1323,10 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                                 type="text"
                                 value={student.name}
                                 onChange={(e) => handleStudentInfoChange(student, 'name', e.target.value)}
-                                className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-emerald-600 focus:bg-white px-1 py-0.5 rounded text-[12pt] outline-none font-bold text-slate-900 leading-normal"
+                                className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-emerald-600 focus:bg-white px-1 py-0.5 rounded text-[13pt] outline-none font-bold text-slate-900 leading-normal"
                               />
                             ) : (
-                              <span className="text-[12pt] font-bold text-slate-900 leading-normal">{student.name}</span>
+                              <span className="text-[13pt] font-bold text-slate-900 leading-normal">{student.name}</span>
                             )}
                           </td>
 
@@ -1493,7 +1493,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                                   if (e.key === 'Enter') handleSaveInlineStudent(rowIndex);
                                   else if (e.key === 'Escape') setEditingRowIndex(null);
                                 }}
-                                className="px-2.5 py-1.5 text-[12pt] font-bold border border-emerald-400 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full text-slate-900"
+                                className="px-2.5 py-1.5 text-[13pt] font-bold border border-emerald-400 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500 w-full text-slate-900"
                               />
                               <select
                                 value={inlineStudentGender}
@@ -1520,7 +1520,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                                   setEditingRowIndex(rowIndex);
                                   setInlineStudentName('');
                                 }}
-                                className="cursor-pointer text-slate-400 hover:text-emerald-700 text-[12pt] font-medium italic flex items-center gap-1.5 select-none print:hidden"
+                                className="cursor-pointer text-slate-400 hover:text-emerald-700 text-[13pt] font-medium italic flex items-center gap-1.5 select-none print:hidden"
                                 title="ተማሪ ለመመዝገብ ጠቅ ያድርጉ"
                               >
                                 <Plus className="w-3.5 h-3.5 text-slate-400" />
@@ -1892,7 +1892,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                           {idx + 1}
                         </span>
                         <div>
-                          <h4 className="font-bold text-slate-900 text-[12pt]">{student.name}</h4>
+                          <h4 className="font-bold text-slate-900 text-[13pt]">{student.name}</h4>
                           <span
                             className={`text-[11px] font-semibold ${
                               student.gender === 'ወ'
@@ -2118,7 +2118,7 @@ export const AttendanceTab: React.FC<AttendanceTabProps> = ({
                         <td className="py-2.5 px-3 border-r border-slate-200 font-semibold text-blue-900">
                           {rec.className}
                         </td>
-                        <td className="py-2.5 px-4 border-r border-slate-200 text-left font-bold text-[12pt] text-slate-900">
+                        <td className="py-2.5 px-4 border-r border-slate-200 text-left font-bold text-[13pt] text-slate-900">
                           {rec.studentName}
                         </td>
                         <td className="py-2.5 px-3 border-r border-slate-200">
