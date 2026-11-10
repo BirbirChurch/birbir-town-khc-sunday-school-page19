@@ -14,7 +14,8 @@ import {
   UserCheck,
   BookMarked,
   KeyRound,
-  Users
+  Users,
+  HeartHandshake
 } from 'lucide-react';
 import {
   Role,
@@ -25,7 +26,8 @@ import {
   SpiritualMember,
   AnnualPlanItem,
   AppData,
-  WeeklyAttendanceStatus
+  WeeklyAttendanceStatus,
+  ChurchChild
 } from './types';
 import { CLASS_LIST, DEFAULT_ANNUAL_PLAN } from './constants/initialData';
 import { subscribeToAppData, syncAppDataToFirebase, saveToLocalStorage, countStudentsInData, exportBackupJSON } from './services/firebase';
@@ -34,6 +36,7 @@ import { Header } from './components/Header';
 import { LoginPortal } from './components/LoginPortal';
 import { ClassesTab } from './components/ClassesTab';
 import { AllStudentsMasterTab } from './components/AllStudentsMasterTab';
+import { ChurchChildrenTab } from './components/ChurchChildrenTab';
 import { AttendanceTab } from './components/AttendanceTab';
 import { ChoirTab } from './components/ChoirTab';
 import { SpiritualTab } from './components/SpiritualTab';
@@ -665,6 +668,90 @@ export default function App() {
     }));
   };
 
+  // Church Children handlers
+  const handleAddChurchChild = (newChild: Omit<ChurchChild, 'id'>) => {
+    const childWithId: ChurchChild = {
+      ...newChild,
+      id: generateUniqueId()
+    };
+    updateAppData(
+      (prev) => ({
+        ...prev,
+        churchChildren: [...(prev.churchChildren || []), childWithId]
+      }),
+      { immediate: true }
+    );
+  };
+
+  const handleUpdateChurchChild = (updatedChild: ChurchChild) => {
+    updateAppData((prev) => ({
+      ...prev,
+      churchChildren: (prev.churchChildren || []).map((c) =>
+        c.id === updatedChild.id ? updatedChild : c
+      )
+    }));
+  };
+
+  const handleDeleteChurchChild = (id: number) => {
+    updateAppData((prev) => ({
+      ...prev,
+      churchChildren: (prev.churchChildren || []).filter((c) => c.id !== id)
+    }));
+  };
+
+  const handleBatchAddChurchChildren = (children: Omit<ChurchChild, 'id'>[]) => {
+    if (!children.length) return;
+    const withIds: ChurchChild[] = children.map((c) => ({
+      ...c,
+      id: generateUniqueId()
+    }));
+    updateAppData(
+      (prev) => ({
+        ...prev,
+        churchChildren: [...(prev.churchChildren || []), ...withIds]
+      }),
+      { immediate: true }
+    );
+  };
+
+  const handleEnrollChildToSundaySchool = (child: ChurchChild, targetClass: string) => {
+    handleAddStudentToClass(targetClass, {
+      name: child.name,
+      gender: child.gender || 'ወ',
+      age: child.age || 7,
+      m1: 0,
+      m2: 0,
+      m3: 0,
+      m4: 0,
+      m5: 0,
+      m6: 0,
+      m7: 0,
+      total: 0
+    });
+  };
+
+  const handleImportMissingStudentsToChurchChildren = (
+    missingStudents: { name: string; gender: string; age: number | string; className: string }[]
+  ) => {
+    if (!missingStudents.length) return;
+    const toAdd: ChurchChild[] = missingStudents.map((st) => ({
+      id: generateUniqueId(),
+      name: st.name,
+      gender: st.gender || 'ወ',
+      age: st.age || 7,
+      residence: 'ብርብር ከተማ',
+      notes: `ከሰንበት ት/ቤት (${st.className}) የተወሰደ`,
+      registeredDate: new Date().toISOString().split('T')[0]
+    }));
+    updateAppData(
+      (prev) => ({
+        ...prev,
+        churchChildren: [...(prev.churchChildren || []), ...toAdd]
+      }),
+      { immediate: true }
+    );
+  };
+
   // Plan handlers
   const handleUpdatePlan = (updatedPlan: AnnualPlanItem) => {
     updateAppData((prev) => ({
@@ -782,6 +869,7 @@ export default function App() {
   const tabs = [
     { id: 'classesTab', label: 'የክፍል ደረጃዎች & ውጤት', icon: GraduationCap, roles: ['admin', 'leader', 'teacher'] },
     { id: 'allStudentsMasterTab', label: 'ሁሉንም የተመዘገቡ ተማሪዎች', icon: Users, roles: ['admin', 'leader'] },
+    { id: 'churchChildrenTab', label: 'የቤተክርስቲያኒቱ የልጆች ቋት', icon: HeartHandshake, roles: ['admin', 'leader'] },
     { id: 'attendanceTab', label: 'የተማሪዎች አተንዳንስ & መቆጣጠሪያ', icon: CalendarCheck2, roles: ['admin', 'leader', 'teacher'] },
     { id: 'choirTab', label: 'የመዘምራንና ኪነ-ጥበብ ቡድኖች', icon: Music, roles: ['admin', 'leader', 'teacher'] },
     { id: 'spiritualTab', label: 'መንፈሳዊ ትምህርት ቡድኖች', icon: BookOpen, roles: ['admin', 'leader', 'teacher'] },
@@ -922,6 +1010,22 @@ export default function App() {
                     setSelectedClass(cName);
                     setActiveTab('classesTab');
                   }}
+                  currentUserRole={currentUserRole}
+                />
+              )}
+
+              {activeTab === 'churchChildrenTab' && (currentUserRole === 'admin' || currentUserRole === 'leader') && (
+                <ChurchChildrenTab
+                  currentYear={currentYear}
+                  classList={CLASS_LIST}
+                  churchChildren={appData.churchChildren || []}
+                  studentsByClass={appData.students?.[currentYear] || {}}
+                  onAddChild={handleAddChurchChild}
+                  onUpdateChild={handleUpdateChurchChild}
+                  onDeleteChild={handleDeleteChurchChild}
+                  onBatchAddChildren={handleBatchAddChurchChildren}
+                  onEnrollToSundaySchool={handleEnrollChildToSundaySchool}
+                  onImportMissingStudentsToChurchChildren={handleImportMissingStudentsToChurchChildren}
                   currentUserRole={currentUserRole}
                 />
               )}

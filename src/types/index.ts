@@ -92,6 +92,20 @@ export interface WeekDatesData {
   };
 }
 
+export interface ChurchChild {
+  id: number;
+  name: string; // የልጁ ሙሉ ስም
+  gender: 'ወ' | 'ሴ' | string; // ጾታ
+  age: number | string; // ዕድሜ
+  parentName?: string; // የወላጅ/አሳዳጊ ስም
+  phone?: string; // ስልክ ቁጥር
+  residence?: string; // መኖሪያ ቀበሌ/መንደር/ሰፈር
+  fellowshipOrVillage?: string; // የህብረት/የቡድን ስም ወይም መንደር
+  isBaptized?: boolean; // የተጠመቀ/ች (አማራጭ)
+  notes?: string; // ማስታወሻ
+  registeredDate?: string; // የተመዘገበበት ቀን
+}
+
 export interface AppData {
   years: string[];
   pins: {
@@ -116,5 +130,7 @@ export interface AppData {
       [className: string]: Student[];
     };
   };
+  churchChildren?: ChurchChild[];
 }
+
 

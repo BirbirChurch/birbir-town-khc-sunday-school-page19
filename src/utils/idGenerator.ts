@@ -3,7 +3,7 @@
  * Prevents timestamp collision even when called many times in the same millisecond or inside tight CSV import loops.
  */
 
-import { AppData, Student, AbsenteeRecord, ChoirMember, SpiritualMember, Teacher, AnnualPlanItem } from '../types';
+import { AppData, Student, AbsenteeRecord, ChoirMember, SpiritualMember, Teacher, AnnualPlanItem, ChurchChild } from '../types';
 
 let _lastUniqueId = Math.max(Date.now(), 1792849000000);
 
@@ -115,6 +115,17 @@ export const sanitizeAndDeduplicateAppData = (data: AppData): AppData => {
       })
     : [];
 
+  // 7. Sanitize churchChildren
+  const sanitizedChurchChildren: ChurchChild[] = Array.isArray(data.churchChildren)
+    ? data.churchChildren.map((c) => {
+        const checkedId = ensureUniqueId(c?.id);
+        if (checkedId !== c?.id) {
+          return { ...c, id: checkedId };
+        }
+        return c;
+      })
+    : [];
+
   if (!modified) {
     return data;
   }
@@ -128,6 +139,7 @@ export const sanitizeAndDeduplicateAppData = (data: AppData): AppData => {
     choirMembers: sanitizedChoir,
     spiritualMembers: sanitizedSpiritual,
     teachers: sanitizedTeachers,
-    plans: sanitizedPlans
+    plans: sanitizedPlans,
+    churchChildren: sanitizedChurchChildren
   };
 };
