@@ -45,6 +45,7 @@ interface ChurchChildrenTabProps {
   onAddChild: (child: Omit<ChurchChild, 'id'>) => void;
   onUpdateChild: (child: ChurchChild) => void;
   onDeleteChild: (id: number) => void;
+  onClearChurchChildren?: (chapelFilter?: string) => void;
   onBatchAddChildren: (children: Omit<ChurchChild, 'id'>[], mode?: 'append' | 'replace') => void;
   onEnrollToSundaySchool: (child: ChurchChild, targetClass: string) => void;
   onImportMissingStudentsToChurchChildren: (
@@ -77,6 +78,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
   onAddChild,
   onUpdateChild,
   onDeleteChild,
+  onClearChurchChildren,
   onBatchAddChildren,
   onEnrollToSundaySchool,
   onImportMissingStudentsToChurchChildren,
@@ -96,6 +98,9 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
   const [enrollTargetChild, setEnrollTargetChild] = useState<ChurchChild | null>(null);
   const [selectedEnrollClass, setSelectedEnrollClass] = useState<string>(classList[0] || 'ማቆያ ክፍል');
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
+  const [isClearModalOpen, setIsClearModalOpen] = useState<boolean>(false);
+  const [clearTargetChapel, setClearTargetChapel] = useState<string>('all');
+  const [clearConfirmWord, setClearConfirmWord] = useState<string>('');
 
   // Form state
   const [formName, setFormName] = useState<string>('');
@@ -117,6 +122,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
   const [importTotalRows, setImportTotalRows] = useState<number>(0);
   const [importActiveTab, setImportActiveTab] = useState<'children' | 'adults'>('children');
   const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
+  const [importChapelFilter, setImportChapelFilter] = useState<string>('all');
   const [importFileName, setImportFileName] = useState<string>('');
 
   // 1. Build an index of Sunday School students for fast cross-referencing
@@ -788,15 +794,53 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
     reader.readAsBinaryString(file);
   };
 
-  // Confirm Import
+  // Distinct Chapels in the uploaded Excel file
+  const importChapelsSummary = useMemo(() => {
+    const map: { [chapel: string]: number } = {};
+    importChildrenPreview.forEach((c) => {
+      const ch = c.chapel || 'ዋናው ማዕከል ቻፕል';
+      map[ch] = (map[ch] || 0) + 1;
+    });
+    return Object.entries(map).map(([name, count]) => ({ name, count }));
+  }, [importChildrenPreview]);
+
+  // Children filtered by Chapel in the Import Preview
+  const displayedImportChildren = useMemo(() => {
+    if (importChapelFilter === 'all') return importChildrenPreview;
+    return importChildrenPreview.filter((c) => (c.chapel || 'ዋናው ማዕከል ቻፕል') === importChapelFilter);
+  }, [importChildrenPreview, importChapelFilter]);
+
+  // Confirm Import (Supports multi-chapel filter and Clear Old & Replace)
   const handleConfirmImport = () => {
-    if (importChildrenPreview.length === 0) return;
-    onBatchAddChildren(importChildrenPreview, importMode);
+    if (displayedImportChildren.length === 0) return;
+
+    if (importMode === 'replace') {
+      if (importChapelFilter === 'all') {
+        onBatchAddChildren(displayedImportChildren, 'replace');
+      } else {
+        if (onClearChurchChildren) {
+          onClearChurchChildren(importChapelFilter);
+        }
+        onBatchAddChildren(displayedImportChildren, 'append');
+      }
+    } else {
+      onBatchAddChildren(displayedImportChildren, 'append');
+    }
+
     setIsImportModalOpen(false);
     setImportChildrenPreview([]);
     setImportAdultsSkipped([]);
     setImportTotalRows(0);
+    setImportChapelFilter('all');
     setImportFileName('');
+  };
+
+  // Clear Church Children data handler
+  const handleExecuteClear = () => {
+    if (!onClearChurchChildren) return;
+    onClearChurchChildren(clearTargetChapel);
+    setIsClearModalOpen(false);
+    setClearConfirmWord('');
   };
 
   return (
@@ -870,6 +914,21 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
               <Printer className="w-4 h-4" />
               <span>🖨️ ፕሪንት / PDF</span>
             </button>
+
+            {onClearChurchChildren && (
+              <button
+                type="button"
+                onClick={() => {
+                  setClearTargetChapel(selectedChapelFilter);
+                  setIsClearModalOpen(true);
+                }}
+                className="bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs px-3 py-2 rounded-xl transition flex items-center gap-1.5 border border-rose-200/80 shadow-2xs cursor-pointer"
+                title="ቀድሞ የገባውን የልጆች መረጃ ሙሉ በሙሉ ወይም በቻፕል ለይተህ አጽዳ"
+              >
+                <Trash2 className="w-4 h-4 text-rose-600" />
+                <span>🧹 መረጃ አጽዳ</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -2005,9 +2064,71 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                   {/* Tab 1: Children to Import Preview Table */}
                   {importActiveTab === 'children' && (
                     <div className="space-y-3">
-                      {importChildrenPreview.length === 0 ? (
+                      {/* Multi-Chapel Filter Strip in Uploaded File */}
+                      {importChapelsSummary.length > 0 && (
+                        <div className="bg-gradient-to-r from-blue-50/70 to-indigo-50/70 p-3 rounded-xl border border-blue-200/80">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 mb-2">
+                            <span className="text-xs font-extrabold text-blue-950 flex items-center gap-1.5">
+                              <Filter className="w-3.5 h-3.5 text-blue-800" />
+                              <span>በቻፕል ለይተህ አስገባ (በፋይሉ የተገኙ {importChapelsSummary.length} ቻፕሎች)፦</span>
+                            </span>
+                            {importChapelFilter !== 'all' ? (
+                              <span className="text-[11px] text-blue-900 bg-blue-100 font-bold px-2.5 py-0.5 rounded-full border border-blue-200 self-start sm:self-auto">
+                                የተመረጠው ቻፕል፦ {importChapelFilter} ({displayedImportChildren.length} ልጆች)
+                              </span>
+                            ) : (
+                              <span className="text-[11px] text-slate-600 bg-white/80 font-semibold px-2 py-0.5 rounded-full border border-slate-200 self-start sm:self-auto">
+                                ሁሉም ቻፕሎች በአንድ ላይ ({importChildrenPreview.length} ልጆች)
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => setImportChapelFilter('all')}
+                              className={`px-3 py-1.5 text-xs rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                                importChapelFilter === 'all'
+                                  ? 'bg-blue-900 text-white shadow-xs'
+                                  : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                              }`}
+                            >
+                              <span>የሁሉም ቻፕሎች ({importChildrenPreview.length})</span>
+                            </button>
+
+                            {importChapelsSummary.map((ch) => {
+                              const isSelected = importChapelFilter === ch.name;
+                              return (
+                                <button
+                                  key={`chapel_btn_${ch.name}`}
+                                  type="button"
+                                  onClick={() => setImportChapelFilter(ch.name)}
+                                  className={`px-3 py-1.5 text-xs rounded-lg font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                                    isSelected
+                                      ? 'bg-blue-900 text-white shadow-xs'
+                                      : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                                  }`}
+                                >
+                                  <span>{ch.name}</span>
+                                  <span
+                                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                                      isSelected ? 'bg-blue-800 text-blue-100' : 'bg-slate-100 text-slate-700'
+                                    }`}
+                                  >
+                                    {ch.count}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {displayedImportChildren.length === 0 ? (
                         <div className="p-8 text-center bg-slate-50 rounded-xl text-slate-500 text-xs">
-                          በፋይሉ ውስጥ ከ0-14 ዓመት የሆነ ልጅ አልተገኘም! እባክዎ ፋይልዎን ያረጋግጡ።
+                          {importChapelFilter === 'all'
+                            ? 'በፋይሉ ውስጥ ከ0-14 ዓመት የሆነ ልጅ አልተገኘም! እባክዎ ፋይልዎን ያረጋግጡ።'
+                            : `በ«${importChapelFilter}» ስር ከ0-14 ዓመት የተመዘገበ ልጅ አልተገኘም!`}
                         </div>
                       ) : (
                         <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl">
@@ -2026,21 +2147,29 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                               </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100">
-                              {importChildrenPreview.map((row, idx) => (
+                              {displayedImportChildren.map((row, idx) => (
                                 <tr key={`child_prev_${idx}`} className="hover:bg-emerald-50/40">
                                   <td className="py-1.5 px-2 text-center text-slate-400">{idx + 1}</td>
                                   <td className="py-1.5 px-3 font-bold text-slate-900 text-[12pt]">{row.name}</td>
                                   <td className="py-1.5 px-2 text-center font-bold">
-                                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${row.gender === 'ሴ' ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800'}`}>
+                                    <span
+                                      className={`px-1.5 py-0.5 rounded text-[10px] ${
+                                        row.gender === 'ሴ' ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800'
+                                      }`}
+                                    >
                                       {row.gender}
                                     </span>
                                   </td>
-                                  <td className="py-1.5 px-2 text-center font-bold tabular-nums text-slate-800">{row.age} ዓመት</td>
+                                  <td className="py-1.5 px-2 text-center font-bold tabular-nums text-slate-800">
+                                    {row.age} ዓመት
+                                  </td>
                                   <td className="py-1.5 px-2.5 text-indigo-900 font-semibold">{row.educationLevel || '-'}</td>
                                   <td className="py-1.5 px-2.5 text-slate-700">{row.occupation || '-'}</td>
                                   <td className="py-1.5 px-2.5 text-blue-900 font-bold">{row.chapel || '-'}</td>
                                   <td className="py-1.5 px-2.5 text-slate-600">{row.parentName || '-'}</td>
-                                  <td className="py-1.5 px-2.5 font-mono text-[11px] font-bold text-emerald-900">{row.phone || '-'}</td>
+                                  <td className="py-1.5 px-2.5 font-mono text-[11px] font-bold text-emerald-900">
+                                    {row.phone || '-'}
+                                  </td>
                                 </tr>
                               ))}
                             </tbody>
@@ -2048,11 +2177,19 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                         </div>
                       )}
 
-                      {/* Import Mode Selector */}
-                      {importChildrenPreview.length > 0 && (
-                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-                          <span className="font-bold text-slate-800">የማስገቢያ ስልት ይምረጡ፦</span>
-                          <div className="flex items-center gap-4">
+                      {/* Import Mode Selector with Clear Old Support */}
+                      {displayedImportChildren.length > 0 && (
+                        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs">
+                          <div>
+                            <span className="font-bold text-slate-900 block">የማስገቢያ ስልት ይምረጡ፦</span>
+                            <span className="text-[11px] text-slate-500">
+                              {importChapelFilter === 'all'
+                                ? 'ሁሉንም ቻፕሎች አሁን ባለው ላይ መጨመር ወይም ቀድሞ የነበረውን ሙሉ በሙሉ ማጽዳት ይችላሉ'
+                                : `የ«${importChapelFilter}» ልጆችን ብቻ መደመር ወይም የቀድሞውን የዚህ ቻፕል መረጃ ብቻ ማጽዳት ይችላሉ`}
+                            </span>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
                             <label className="flex items-center gap-1.5 cursor-pointer">
                               <input
                                 type="radio"
@@ -2060,10 +2197,11 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                                 value="append"
                                 checked={importMode === 'append'}
                                 onChange={() => setImportMode('append')}
-                                className="text-emerald-600 focus:ring-emerald-500"
+                                className="text-emerald-600 focus:ring-emerald-500 cursor-pointer"
                               />
-                              <span className="font-medium text-slate-700">አሁን ባለው ቋት ላይ ጨምር (Append)</span>
+                              <span className="font-semibold text-slate-800">አሁን ባለው ቋት ላይ ጨምር (Append)</span>
                             </label>
+
                             <label className="flex items-center gap-1.5 cursor-pointer">
                               <input
                                 type="radio"
@@ -2071,9 +2209,13 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                                 value="replace"
                                 checked={importMode === 'replace'}
                                 onChange={() => setImportMode('replace')}
-                                className="text-rose-600 focus:ring-rose-500"
+                                className="text-rose-600 focus:ring-rose-500 cursor-pointer"
                               />
-                              <span className="font-medium text-rose-800">ቀድሞ የነበሩትን አጽድተህ ተካ (Replace)</span>
+                              <span className="font-bold text-rose-800">
+                                {importChapelFilter === 'all'
+                                  ? '🧹 ቀድሞ የገባውን ሙሉ መረጃ አጽድተህ ተካ (Clear All & Replace)'
+                                  : `🧹 የ«${importChapelFilter}» የቀድሞ መረጃ ብቻ አጽድተህ ተካ`}
+                              </span>
                             </label>
                           </div>
                         </div>
@@ -2124,11 +2266,15 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
             </div>
 
             {/* Modal Bottom Actions */}
-            <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-4 border-t border-slate-100 mt-3">
               <span className="text-xs text-slate-500">
-                {importChildrenPreview.length > 0 && (
+                {displayedImportChildren.length > 0 && (
                   <span>
-                    ለማስገባት የተዘጋጁ፦ <strong className="text-emerald-900 font-extrabold">{importChildrenPreview.length} ልጆች</strong>
+                    ለማስገባት የተዘጋጁ፦{' '}
+                    <strong className="text-emerald-900 font-extrabold">{displayedImportChildren.length} ልጆች</strong>
+                    {importChapelFilter !== 'all' && (
+                      <span className="text-slate-500"> (ከጠቅላላው {importChildrenPreview.length} ውስጥ)</span>
+                    )}
                   </span>
                 )}
               </span>
@@ -2141,6 +2287,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                     setImportChildrenPreview([]);
                     setImportAdultsSkipped([]);
                     setImportTotalRows(0);
+                    setImportChapelFilter('all');
                     setImportFileName('');
                   }}
                   className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl"
@@ -2149,18 +2296,174 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                 </button>
                 <button
                   type="button"
-                  disabled={importChildrenPreview.length === 0}
+                  disabled={displayedImportChildren.length === 0}
                   onClick={handleConfirmImport}
                   className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-300 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer hover:scale-[1.01] active:scale-95"
                 >
                   <CheckCircle2 className="w-4 h-4" />
                   <span>
-                    {importChildrenPreview.length > 0
-                      ? `📥 የተመረጡትን ${importChildrenPreview.length} ልጆች አስገባ`
+                    {displayedImportChildren.length > 0
+                      ? `📥 የተጣሩትን (${displayedImportChildren.length}) ልጆች አስገባ`
                       : 'የተመረጠ ልጅ የለም'}
                   </span>
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Church Children Data Modal (ቀድሞ የገባውን መረጃ ማጽጃ) */}
+      {isClearModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full border border-slate-200 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-rose-900 via-rose-800 to-rose-950 text-white p-4 flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-amber-300" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm sm:text-base">የልጆች መረጃ ማጽጃ (Clear Registry Data)</h3>
+                  <p className="text-[11px] text-rose-200">ቀድሞ የገባውን መረጃ በሙሉ ወይም በቻፕል ለይተህ አጽዳ</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsClearModalOpen(false);
+                  setClearConfirmWord('');
+                }}
+                className="text-rose-200 hover:text-white p-1 rounded-lg hover:bg-white/10 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4">
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-3.5 text-xs text-rose-900 space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-rose-950">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>ይህ እርምጃ የቀደሙ የልጆች መረጃዎችን ከቋቱ ያጠፋል!</span>
+                </p>
+                <p className="text-[11px] text-rose-800 leading-relaxed">
+                  አዲስ የExcel ፋይል ከማስገባትዎ በፊት ወይም የተሳሳቱ ምዝገባዎችን ለማስተካከል ቀድሞ የነበረውን መረጃ ማጽዳት ይችላሉ። ሆኖም በሰንበት ት/ቤት ክፍሎች የተመዘገቡ ተማሪዎች መረጃ ላይ ምንም ጉዳት አያደርስም።
+                </p>
+              </div>
+
+              {/* Scope Selection */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-800 block">የማጽዳት ወሰን ይምረጡ፦</label>
+                <div className="space-y-2 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                  {/* Option 1: Clear All */}
+                  <label className="flex items-start gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-white transition border border-transparent hover:border-slate-200">
+                    <input
+                      type="radio"
+                      name="clearScope"
+                      checked={clearTargetChapel === 'all'}
+                      onChange={() => setClearTargetChapel('all')}
+                      className="mt-0.5 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    />
+                    <div className="text-xs">
+                      <span className="font-extrabold text-slate-900 block">
+                        የሁሉንም ቻፕሎች መረጃ ሙሉ በሙሉ አጽዳ (ጠቅላላ {churchChildren.length} ልጆች)
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        በቋቱ ውስጥ ያሉትን ሁሉንም ልጆች መረጃ ሙሉ በሙሉ አጥፍቶ ባዶ ያደርገዋል።
+                      </span>
+                    </div>
+                  </label>
+
+                  {/* Option 2: Clear Specific Chapel */}
+                  <label className="flex items-start gap-2.5 cursor-pointer p-2 rounded-lg hover:bg-white transition border border-transparent hover:border-slate-200">
+                    <input
+                      type="radio"
+                      name="clearScope"
+                      checked={clearTargetChapel !== 'all'}
+                      onChange={() => {
+                        const firstChapel = chapelList[0] || 'ዋናው ማዕከል ቻፕል';
+                        setClearTargetChapel(firstChapel);
+                      }}
+                      className="mt-0.5 text-rose-600 focus:ring-rose-500 cursor-pointer"
+                    />
+                    <div className="text-xs flex-1">
+                      <span className="font-extrabold text-slate-900 block">
+                        የተመረጠውን ቻፕል መረጃ ብቻ አጽዳ
+                      </span>
+                      <span className="text-[11px] text-slate-500 block mb-2">
+                        ሌሎች ቻፕሎች ሳይነኩ የዚህን የተመረጠ ቻፕል መረጃ ብቻ ያጸዳል።
+                      </span>
+
+                      {clearTargetChapel !== 'all' && (
+                        <div className="mt-2 space-y-1.5 bg-white p-2.5 rounded-lg border border-slate-200">
+                          <label className="text-[11px] font-bold text-slate-700 block">የሚጸዳውን ቻፕል ይምረጡ፦</label>
+                          <select
+                            value={clearTargetChapel}
+                            onChange={(e) => setClearTargetChapel(e.target.value)}
+                            className="w-full text-xs font-bold border border-slate-300 rounded-lg p-2 bg-white text-slate-800 focus:ring-2 focus:ring-rose-500"
+                          >
+                            {chapelList.map((ch) => {
+                              const countInChapel = churchChildren.filter(
+                                (c) => (c.chapel || 'ዋናው ማዕከል ቻፕል') === ch
+                              ).length;
+                              return (
+                                <option key={`clear_opt_${ch}`} value={ch}>
+                                  {ch} ({countInChapel} ልጆች)
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                </div>
+              </div>
+
+              {/* Status summary of what will be wiped */}
+              <div className="bg-slate-100 p-3 rounded-xl text-xs flex items-center justify-between">
+                <span className="text-slate-600 font-semibold">የሚጠፉ ልጆች ጠቅላላ ቁጥር፦</span>
+                <span className="text-sm font-black text-rose-700 tabular-nums">
+                  {clearTargetChapel === 'all'
+                    ? `${churchChildren.length} ልጆች (ሁሉም)`
+                    : `${
+                        churchChildren.filter((c) => (c.chapel || 'ዋናው ማዕከል ቻፕል') === clearTargetChapel).length
+                      } ልጆች`}
+                </span>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsClearModalOpen(false);
+                  setClearConfirmWord('');
+                }}
+                className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl transition"
+              >
+                ሰርዝ
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExecuteClear}
+                disabled={
+                  clearTargetChapel === 'all'
+                    ? churchChildren.length === 0
+                    : churchChildren.filter((c) => (c.chapel || 'ዋናው ማዕከል ቻፕል') === clearTargetChapel).length === 0
+                }
+                className="bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-xs flex items-center gap-1.5 cursor-pointer hover:scale-[1.01] active:scale-95"
+              >
+                <Trash2 className="w-4 h-4 text-white" />
+                <span>
+                  {clearTargetChapel === 'all'
+                    ? '🗑️ የሁሉንም ቻፕሎች መረጃ አጽዳ'
+                    : `🗑️ የ«${clearTargetChapel}» መረጃን ብቻ አጽዳ`}
+                </span>
+              </button>
             </div>
           </div>
         </div>

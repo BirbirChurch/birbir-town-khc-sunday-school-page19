@@ -717,6 +717,26 @@ export default function App() {
     );
   };
 
+  const handleClearChurchChildren = (chapelFilter?: string) => {
+    updateAppData(
+      (prev) => {
+        if (chapelFilter && chapelFilter !== 'all') {
+          return {
+            ...prev,
+            churchChildren: (prev.churchChildren || []).filter(
+              (c) => (c.chapel || 'ዋናው ማዕከል ቻፕል') !== chapelFilter
+            )
+          };
+        }
+        return {
+          ...prev,
+          churchChildren: []
+        };
+      },
+      { immediate: true }
+    );
+  };
+
   const handleEnrollChildToSundaySchool = (child: ChurchChild, targetClass: string) => {
     handleAddStudentToClass(targetClass, {
       name: child.name,
@@ -1029,6 +1049,7 @@ export default function App() {
                   onAddChild={handleAddChurchChild}
                   onUpdateChild={handleUpdateChurchChild}
                   onDeleteChild={handleDeleteChurchChild}
+                  onClearChurchChildren={handleClearChurchChildren}
                   onBatchAddChildren={handleBatchAddChurchChildren}
                   onEnrollToSundaySchool={handleEnrollChildToSundaySchool}
                   onImportMissingStudentsToChurchChildren={handleImportMissingStudentsToChurchChildren}
