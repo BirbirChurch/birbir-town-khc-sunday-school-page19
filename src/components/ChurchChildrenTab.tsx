@@ -26,7 +26,9 @@ import {
   Church,
   Copy,
   Check,
-  PhoneCall
+  PhoneCall,
+  BookOpen,
+  Briefcase
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { ChurchChild, Student, Role } from '../types';
@@ -43,7 +45,7 @@ interface ChurchChildrenTabProps {
   onAddChild: (child: Omit<ChurchChild, 'id'>) => void;
   onUpdateChild: (child: ChurchChild) => void;
   onDeleteChild: (id: number) => void;
-  onBatchAddChildren: (children: Omit<ChurchChild, 'id'>[]) => void;
+  onBatchAddChildren: (children: Omit<ChurchChild, 'id'>[], mode?: 'append' | 'replace') => void;
   onEnrollToSundaySchool: (child: ChurchChild, targetClass: string) => void;
   onImportMissingStudentsToChurchChildren: (
     students: { name: string; gender: string; age: number | string; className: string; chapel?: string; phone?: string }[]
@@ -99,6 +101,8 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
   const [formName, setFormName] = useState<string>('');
   const [formGender, setFormGender] = useState<'ወ' | 'ሴ' | ''>('ወ');
   const [formAge, setFormAge] = useState<string>('5');
+  const [formEducationLevel, setFormEducationLevel] = useState<string>('1ኛ ክፍል');
+  const [formOccupation, setFormOccupation] = useState<string>('ተማሪ');
   const [formChapel, setFormChapel] = useState<string>(chapelList[0] || 'ዋናው ማዕከል ቻፕል');
   const [formParent, setFormParent] = useState<string>('');
   const [formPhone, setFormPhone] = useState<string>('');
@@ -106,9 +110,13 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
   const [formVillage, setFormVillage] = useState<string>('');
   const [formNotes, setFormNotes] = useState<string>('');
 
-  // Import preview state
+  // Import preview state (General church database 0-14 filter)
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importPreview, setImportPreview] = useState<Omit<ChurchChild, 'id'>[]>([]);
+  const [importChildrenPreview, setImportChildrenPreview] = useState<Omit<ChurchChild, 'id'>[]>([]);
+  const [importAdultsSkipped, setImportAdultsSkipped] = useState<{ name: string; age: number; gender: string; reason: string }[]>([]);
+  const [importTotalRows, setImportTotalRows] = useState<number>(0);
+  const [importActiveTab, setImportActiveTab] = useState<'children' | 'adults'>('children');
+  const [importMode, setImportMode] = useState<'append' | 'replace'>('append');
   const [importFileName, setImportFileName] = useState<string>('');
 
   // 1. Build an index of Sunday School students for fast cross-referencing
@@ -310,6 +318,8 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
     setFormName('');
     setFormGender('ወ');
     setFormAge('5');
+    setFormEducationLevel('1ኛ ክፍል');
+    setFormOccupation('ተማሪ');
     setFormChapel(chapelList[0] || 'ዋናው ማዕከል ቻፕል');
     setFormParent('');
     setFormPhone('');
@@ -324,6 +334,8 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
     setFormName(child.name);
     setFormGender((child.gender as 'ወ' | 'ሴ') || 'ወ');
     setFormAge(String(child.age || '5'));
+    setFormEducationLevel(child.educationLevel || '1ኛ ክፍል');
+    setFormOccupation(child.occupation || 'ተማሪ');
     setFormChapel(child.chapel || chapelList[0] || 'ዋናው ማዕከል ቻፕል');
     setFormParent(child.parentName || '');
     setFormPhone(child.phone || '');
@@ -344,6 +356,8 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
       name: formName.trim(),
       gender: formGender || 'ወ',
       age: parseInt(formAge, 10) || 5,
+      educationLevel: formEducationLevel.trim() || undefined,
+      occupation: formOccupation.trim() || undefined,
       chapel: formChapel.trim() || undefined,
       parentName: formParent.trim() || undefined,
       phone: formPhone.trim() || undefined,
@@ -407,13 +421,15 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
 
   // Excel Export Handler
   const handleExportExcel = () => {
-    // Sheet 1: Children list
+    // Sheet 1: Children list (0-14 years)
     const headers = [
       'ተ.ቁ',
       'የልጁ ሙሉ ስም',
       'ጾታ',
       'ዕድሜ',
       'የዕድሜ ምድብ',
+      'የትምህርት ደረጃ',
+      'የስራ ዓይነት',
       'ቻፕል (አጥቢያ)',
       'በሰንበት ት/ቤት ይማራል?',
       'የሰንበት ት/ቤት ክፍል',
@@ -440,6 +456,8 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         c.gender === 'ወ' ? 'ወንድ' : c.gender === 'ሴ' ? 'ሴት' : '-',
         c.age || '-',
         ageGroupStr,
+        c.educationLevel || (numAge <= 3 ? 'ጨቅላ' : numAge <= 6 ? 'መዋዕለ ሕፃናት' : `${numAge - 6}ኛ ክፍል`),
+        c.occupation || (numAge <= 3 ? 'የቤት ውስጥ' : 'ተማሪ'),
         c.chapel || 'ዋናው ማዕከል ቻፕል',
         c.isEnrolled ? 'አዎ (ይማራል)' : 'አይማርም',
         c.enrolledClass || '-',
@@ -475,7 +493,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
     ]);
 
     const sheets = [
-      { name: 'የልጆች ዝርዝር & ቻፕል', data: [headers, ...rows] },
+      { name: 'የልጆች ቋት (0-14 ዓመት)', data: [headers, ...rows] },
       { name: 'የቻፕሎች ስታትስቲክስ', data: [chapelHeaders, ...chapelRows] },
       { name: 'የዕድሜ ምድብ ስታቲስቲክስ', data: [statHeaders, ...statRows] }
     ];
@@ -492,18 +510,31 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
 
   // Download Sample Excel Template
   const handleDownloadSampleTemplate = () => {
-    const headers = ['የልጁ ሙሉ ስም', 'ጾታ (ወ/ሴ)', 'ዕድሜ', 'ቻፕል', 'የወላጅ ስም', 'የወላጅ ስልክ', 'መኖሪያ አካባቢ', 'ህብረት/መንደር', 'ማስታወሻ'];
+    const headers = [
+      'ተ.ቁ',
+      'የልጁ ሙሉ ስም',
+      'ጾታ (ወ/ሴ)',
+      'ዕድሜ (0-14)',
+      'የትምህርት ደረጃ',
+      'የስራ ዓይነት',
+      'ቻፕል',
+      'የወላጅ ስም',
+      'የወላጅ ስልክ',
+      'መኖሪያ አካባቢ',
+      'ህብረት/መንደር',
+      'ማስታወሻ'
+    ];
     const sampleRows = [
-      ['ዮናታን ዳዊት', 'ወ', 2, 'ዋናው ማዕከል ቻፕል', 'ዳዊት ታደሰ', '0911223344', 'ቀበሌ 01', 'ቤቴል ህብረት', 'ጨቅላ ህፃን'],
-      ['ሩት ተስፋዬ', 'ሴ', 5, 'ሰላም ቻፕል', 'ተስፋዬ በቀለ', '0922334455', 'ቀበሌ 02', 'ሰላም ህብረት', ''],
-      ['አማኑኤል መሠረት', 'ወ', 8, 'ቤቴል ቻፕል', 'መሠረት ሌቃ', '0933445566', 'ቀበሌ 01', 'አማኑኤል ህብረት', ''],
-      ['ራሔል አሸናፊ', 'ሴ', 11, 'ሰላም ቻፕል', 'አሸናፊ ጫፋ', '0944556677', 'ቀበሌ 03', 'ጽዮን ህብረት', ''],
-      ['ዳዊት መስፍን', 'ወ', 14, 'ዋናው ማዕከል ቻፕል', 'መስፍን ማንጁራ', '0955667788', 'መንደር 1', 'ቤቴል ህብረት', '']
+      [1, 'ዮናታን ዳዊት', 'ወ', 2, 'ጨቅላ/ያልጀመረ', 'የቤት ውስጥ', 'ዋናው ማዕከል ቻፕል', 'ዳዊት ታደሰ', '0911223344', 'ቀበሌ 01', 'ቤቴል ህብረት', 'ጨቅላ ህፃን'],
+      [2, 'ሩት ተስፋዬ', 'ሴ', 5, 'መዋዕለ ሕፃናት (KG 2)', 'ተማሪ', 'ሰላም ቻፕል', 'ተስፋዬ በቀለ', '0922334455', 'ቀበሌ 02', 'ሰላም ህብረት', ''],
+      [3, 'አማኑኤል መሠረት', 'ወ', 8, '2ኛ ክፍል', 'ተማሪ', 'ቤቴል ቻፕል', 'መሠረት ሌቃ', '0933445566', 'ቀበሌ 01', 'አማኑኤል ህብረት', ''],
+      [4, 'ራሔል አሸናፊ', 'ሴ', 11, '5ኛ ክፍል', 'ተማሪ', 'ሰላም ቻፕል', 'አሸናፊ ጫፋ', '0944556677', 'ቀበሌ 03', 'ጽዮን ህብረት', ''],
+      [5, 'ዳዊት መስፍን', 'ወ', 14, '8ኛ ክፍል', 'ተማሪ', 'ዋናው ማዕከል ቻፕል', 'መስፍን ማንጁራ', '0955667788', 'መንደር 1', 'ቤቴል ህብረት', '']
     ];
     downloadXLSX([headers, ...sampleRows], 'የልጆች_መረጃ_መሙያ_ናሙና.xlsx', 'የልጆች መረጃ');
   };
 
-  // Handle File Upload for Import
+  // Handle File Upload from General Church Database with 0-14 Child Filter
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -517,73 +548,237 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         const workbook = XLSX.read(buffer, { type: 'binary' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        const rawRows: string[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        const rawRows: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        if (rawRows.length < 2) {
+        if (!rawRows || rawRows.length < 2) {
           alert('ፋይሉ ምንም የመረጃ መስመር አልያዘም!');
           return;
         }
 
-        // Find header row
-        const headerRow = rawRows[0] || [];
+        // Search for header row among first 10 rows
+        let headerRowIndex = 0;
         let nameIdx = -1;
         let genderIdx = -1;
         let ageIdx = -1;
+        let birthYearIdx = -1;
+        let educationIdx = -1;
+        let occupationIdx = -1;
         let chapelIdx = -1;
         let parentIdx = -1;
         let phoneIdx = -1;
         let residenceIdx = -1;
+        let villageIdx = -1;
         let notesIdx = -1;
 
-        headerRow.forEach((col, idx) => {
-          const str = String(col || '').toLowerCase();
-          if (str.includes('ስም') && !str.includes('ወላጅ') && !str.includes('አባት')) nameIdx = idx;
-          if (str.includes('ጾታ') || str.includes('gender')) genderIdx = idx;
-          if (str.includes('ዕድሜ') || str.includes('age')) ageIdx = idx;
-          if (str.includes('ቻፕል') || str.includes('chapel') || str.includes('አጥቢያ')) chapelIdx = idx;
-          if (str.includes('ወላጅ') || str.includes('አባት') || str.includes('parent')) parentIdx = idx;
-          if (str.includes('ስልክ') || str.includes('phone')) phoneIdx = idx;
-          if (str.includes('መኖሪያ') || str.includes('ቀበሌ') || str.includes('አካባቢ') || str.includes('መንደር')) residenceIdx = idx;
-          if (str.includes('ማስታወሻ') || str.includes('note')) notesIdx = idx;
+        for (let r = 0; r < Math.min(10, rawRows.length); r++) {
+          const row = rawRows[r] || [];
+          let matches = 0;
+          row.forEach((col: any) => {
+            const str = String(col || '').toLowerCase().trim();
+            if (str.includes('ስም') || str.includes('name')) matches++;
+            if (str.includes('ጾታ') || str.includes('gender') || str.includes('sex') || str === 'ወ/ሴ') matches++;
+            if (str.includes('ዕድሜ') || str.includes('age') || str.includes('ትውልድ') || str.includes('ልደት')) matches++;
+            if (str.includes('ትምህርት') || str.includes('ደረጃ') || str.includes('grade') || str.includes('education')) matches++;
+            if (str.includes('ስራ') || str.includes('ሥራ') || str.includes('occupation') || str.includes('job')) matches++;
+            if (str.includes('ቻፕል') || str.includes('chapel') || str.includes('አጥቢያ')) matches++;
+            if (str.includes('ስልክ') || str.includes('phone') || str.includes('mobile')) matches++;
+          });
+          if (matches >= 2) {
+            headerRowIndex = r;
+            break;
+          }
+        }
+
+        const headerRow = rawRows[headerRowIndex] || [];
+        headerRow.forEach((col: any, idx: number) => {
+          const str = String(col || '').toLowerCase().trim();
+          if ((str.includes('ስም') || str.includes('name')) && !str.includes('ወላጅ') && !str.includes('አባት') && !str.includes('እናት') && !str.includes('parent')) {
+            if (nameIdx === -1) nameIdx = idx;
+          }
+          if (str.includes('ጾታ') || str.includes('gender') || str.includes('sex') || str === 'ወ/ሴ') {
+            if (genderIdx === -1) genderIdx = idx;
+          }
+          if (str.includes('ዕድሜ') || str.includes('age')) {
+            if (ageIdx === -1) ageIdx = idx;
+          }
+          if (str.includes('ትውልድ') || str.includes('ልደት') || str.includes('birth') || str.includes('dob') || str.includes('yob')) {
+            if (birthYearIdx === -1) birthYearIdx = idx;
+          }
+          if (str.includes('ትምህርት') || str.includes('ደረጃ') || str.includes('education') || str.includes('grade') || str.includes('level') || str.includes('የት/ደረጃ')) {
+            if (educationIdx === -1) educationIdx = idx;
+          }
+          if (str.includes('ስራ') || str.includes('ሥራ') || str.includes('occupation') || str.includes('job') || str.includes('profession') || str.includes('work')) {
+            if (occupationIdx === -1) occupationIdx = idx;
+          }
+          if (str.includes('ቻፕል') || str.includes('chapel') || str.includes('አጥቢያ') || str.includes('ማዕከል') || str.includes('branch')) {
+            if (chapelIdx === -1) chapelIdx = idx;
+          }
+          if (str.includes('ወላጅ') || str.includes('አባት') || str.includes('እናት') || str.includes('አሳዳጊ') || str.includes('parent') || str.includes('guardian')) {
+            if (parentIdx === -1) parentIdx = idx;
+          }
+          if (str.includes('ስልክ') || str.includes('phone') || str.includes('mobile') || str.includes('tel') || str.includes('cell')) {
+            if (phoneIdx === -1) phoneIdx = idx;
+          }
+          if (str.includes('መኖሪያ') || str.includes('ቀበሌ') || str.includes('አካባቢ') || str.includes('residence')) {
+            if (residenceIdx === -1) residenceIdx = idx;
+          }
+          if (str.includes('መንደር') || str.includes('ህብረት') || str.includes('ሰፈር') || str.includes('village') || str.includes('fellowship')) {
+            if (villageIdx === -1) villageIdx = idx;
+          }
+          if (str.includes('ማስታወሻ') || str.includes('note') || str.includes('remark')) {
+            if (notesIdx === -1) notesIdx = idx;
+          }
         });
 
-        // Fallbacks if header wasn't matched explicitly
         if (nameIdx === -1) nameIdx = 0;
         if (genderIdx === -1) genderIdx = 1;
-        if (ageIdx === -1) ageIdx = 2;
+        if (ageIdx === -1 && birthYearIdx !== -1) ageIdx = birthYearIdx;
+        else if (ageIdx === -1) ageIdx = 2;
 
-        const parsed: Omit<ChurchChild, 'id'>[] = [];
+        const currentEthYearNum = parseInt(currentYear, 10) || 2019;
+        const currentGregYearNum = new Date().getFullYear();
 
-        for (let i = 1; i < rawRows.length; i++) {
+        const childrenList: Omit<ChurchChild, 'id'>[] = [];
+        const adultsList: { name: string; age: number; gender: string; reason: string }[] = [];
+        let totalProcessed = 0;
+
+        for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
           const row = rawRows[i];
           if (!row || row.length === 0) continue;
 
           const rawName = String(row[nameIdx] || '').trim();
-          if (!rawName || rawName === 'ተ.ቁ' || rawName === 'ስም') continue;
+          if (!rawName || rawName === 'ተ.ቁ' || rawName === 'ስም' || rawName.includes('ድምር') || rawName.includes('ጠቅላላ')) continue;
 
-          const rawGender = String(row[genderIdx] || '').trim();
-          const gender = rawGender.startsWith('ሴ') || rawGender.toLowerCase().startsWith('f') ? 'ሴ' : 'ወ';
-          const age = parseInt(String(row[ageIdx] || '5'), 10) || 5;
-          const chapel = chapelIdx !== -1 && row[chapelIdx] ? String(row[chapelIdx]).trim() : chapelList[0] || 'ዋናው ማዕከል ቻፕል';
+          totalProcessed++;
+
+          // 1. Gender detection
+          const rawGender = String(genderIdx !== -1 ? row[genderIdx] || '' : '').trim();
+          const gender = rawGender.startsWith('ሴ') || rawGender.toLowerCase().startsWith('f') || rawGender.toLowerCase().includes('female') ? 'ሴ' : 'ወ';
+
+          // 2. Age detection & Calculation
+          let calculatedAge = -1;
+          const rawAgeVal = ageIdx !== -1 ? row[ageIdx] : undefined;
+          const rawBirthVal = birthYearIdx !== -1 ? row[birthYearIdx] : undefined;
+
+          const parseCandidate = (val: any): number => {
+            if (val === undefined || val === null || val === '') return -1;
+            if (typeof val === 'number') {
+              if (val >= 1900 && val <= 2010) return currentGregYearNum - val;
+              if (val >= 2011 && val <= 2026) return currentGregYearNum - val;
+              if (val >= 1980 && val <= 2030) return Math.max(0, currentEthYearNum - val);
+              return val;
+            }
+            const s = String(val).trim();
+            const numMatch = s.match(/\d+/);
+            if (numMatch) {
+              const n = parseInt(numMatch[0], 10);
+              if (n >= 1900 && n <= 2010) return currentGregYearNum - n;
+              if (n >= 2011 && n <= 2026) return currentGregYearNum - n;
+              if (n >= 1980 && n <= 2030) return Math.max(0, currentEthYearNum - n);
+              return n;
+            }
+            return -1;
+          };
+
+          calculatedAge = parseCandidate(rawAgeVal);
+          if (calculatedAge === -1 && rawBirthVal !== undefined) {
+            calculatedAge = parseCandidate(rawBirthVal);
+          }
+
+          // Fallback heuristic if age was not explicit
+          const rawEdu = educationIdx !== -1 && row[educationIdx] ? String(row[educationIdx]).trim() : '';
+          const rawOcc = occupationIdx !== -1 && row[occupationIdx] ? String(row[occupationIdx]).trim() : '';
+
+          if (calculatedAge === -1) {
+            if (rawEdu.includes('KG') || rawEdu.includes('መዋዕለ') || rawEdu.includes('ኬጂ') || rawEdu.includes('ጨቅላ')) {
+              calculatedAge = 4;
+            } else if (rawEdu.includes('1ኛ')) {
+              calculatedAge = 7;
+            } else if (rawEdu.includes('2ኛ')) {
+              calculatedAge = 8;
+            } else if (rawEdu.includes('3ኛ')) {
+              calculatedAge = 9;
+            } else if (rawEdu.includes('4ኛ')) {
+              calculatedAge = 10;
+            } else if (rawEdu.includes('5ኛ')) {
+              calculatedAge = 11;
+            } else if (rawEdu.includes('6ኛ')) {
+              calculatedAge = 12;
+            } else if (rawEdu.includes('7ኛ')) {
+              calculatedAge = 13;
+            } else if (rawEdu.includes('8ኛ')) {
+              calculatedAge = 14;
+            } else if (rawOcc.includes('ተማሪ') && (parentIdx !== -1 || phoneIdx !== -1)) {
+              calculatedAge = 10;
+            } else {
+              calculatedAge = 25; // default adult
+            }
+          }
+
+          // 3. Strict 0-14 filter (Only take children 0-14 years old)
+          if (calculatedAge > 14) {
+            adultsList.push({
+              name: rawName,
+              gender,
+              age: calculatedAge,
+              reason: `ዕድሜው ${calculatedAge} ዓመት (ከ14 ዓመት በላይ በመሆኑ ተዘልሏል)`
+            });
+            continue;
+          }
+
+          // Valid child (0 to 14 years old)
+          const validAge = Math.max(0, Math.min(14, calculatedAge));
+
+          // Education Level formatting
+          let educationLevel = rawEdu;
+          if (!educationLevel) {
+            if (validAge <= 3) educationLevel = 'ጨቅላ/ያልጀመረ';
+            else if (validAge <= 6) educationLevel = `መዋዕለ ሕፃናት (KG ${Math.min(3, validAge - 3 || 1)})`;
+            else if (validAge <= 14) educationLevel = `${validAge - 6}ኛ ክፍል`;
+          }
+
+          // Occupation formatting
+          let occupation = rawOcc;
+          if (!occupation) {
+            if (validAge <= 3) occupation = 'የቤት ውስጥ';
+            else occupation = 'ተማሪ';
+          }
+
+          // Chapel detection & normalization
+          let chapel = chapelIdx !== -1 && row[chapelIdx] ? String(row[chapelIdx]).trim() : '';
+          if (!chapel) {
+            chapel = chapelList[0] || 'ዋናው ማዕከል ቻፕል';
+          } else {
+            const matchedCh = chapelList.find((ch) => chapel.includes(ch) || ch.includes(chapel));
+            if (matchedCh) chapel = matchedCh;
+          }
+
           const parentName = parentIdx !== -1 && row[parentIdx] ? String(row[parentIdx]).trim() : undefined;
           const phone = phoneIdx !== -1 && row[phoneIdx] ? String(row[phoneIdx]).trim() : undefined;
           const residence = residenceIdx !== -1 && row[residenceIdx] ? String(row[residenceIdx]).trim() : undefined;
+          const village = villageIdx !== -1 && row[villageIdx] ? String(row[villageIdx]).trim() : undefined;
           const notes = notesIdx !== -1 && row[notesIdx] ? String(row[notesIdx]).trim() : undefined;
 
-          parsed.push({
+          childrenList.push({
             name: rawName,
             gender,
-            age,
+            age: validAge,
+            educationLevel,
+            occupation,
             chapel,
             parentName,
             phone,
-            residence,
+            residence: residence || village,
+            fellowshipOrVillage: village,
             notes,
             registeredDate: new Date().toISOString().split('T')[0]
           });
         }
 
-        setImportPreview(parsed);
+        setImportTotalRows(totalProcessed);
+        setImportChildrenPreview(childrenList);
+        setImportAdultsSkipped(adultsList);
+        setImportActiveTab('children');
       } catch (err) {
         console.error('Error parsing excel file', err);
         alert('ፋይሉን ማንበብ አልተቻለም። እባክዎ ትክክለኛ Excel ወይም CSV ፋይል መሆኑን ያረጋግጡ።');
@@ -595,10 +790,12 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
 
   // Confirm Import
   const handleConfirmImport = () => {
-    if (importPreview.length === 0) return;
-    onBatchAddChildren(importPreview);
+    if (importChildrenPreview.length === 0) return;
+    onBatchAddChildren(importChildrenPreview, importMode);
     setIsImportModalOpen(false);
-    setImportPreview([]);
+    setImportChildrenPreview([]);
+    setImportAdultsSkipped([]);
+    setImportTotalRows(0);
     setImportFileName('');
   };
 
@@ -1124,21 +1321,23 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
               <thead>
                 <tr className="bg-slate-900 text-white uppercase text-[11px] tracking-wider print:bg-slate-800 print:text-white">
                   <th className="py-3 px-3 text-center w-12 font-bold">ተ.ቁ</th>
-                  <th className="py-3 px-4 font-extrabold text-[13pt] text-white min-w-[210px]">የልጁ ሙሉ ስም</th>
-                  <th className="py-3 px-3 font-bold min-w-[140px]">ቻፕል (አጥቢያ)</th>
+                  <th className="py-3 px-4 font-extrabold text-[13pt] text-white min-w-[200px]">የልጁ ሙሉ ስም</th>
+                  <th className="py-3 px-3 font-bold min-w-[130px]">ቻፕል (አጥቢያ)</th>
                   <th className="py-3 px-3 text-center font-bold w-16">ጾታ</th>
                   <th className="py-3 px-3 text-center font-bold w-16">ዕድሜ</th>
-                  <th className="py-3 px-3 font-bold min-w-[160px]">የሰንበት ት/ቤት የመማር ሁኔታ</th>
-                  <th className="py-3 px-3 font-bold min-w-[150px]">የወላጅ/አሳዳጊ ስም</th>
-                  <th className="py-3 px-3 font-bold min-w-[150px]">የወላጅ ስልክ ቁጥር</th>
-                  <th className="py-3 px-3 font-bold min-w-[130px]">መኖሪያ ቀበሌ</th>
+                  <th className="py-3 px-3 font-bold min-w-[120px]">የትምህርት ደረጃ</th>
+                  <th className="py-3 px-3 font-bold min-w-[110px]">የስራ ዓይነት</th>
+                  <th className="py-3 px-3 font-bold min-w-[150px]">የሰንበት ት/ቤት የመማር ሁኔታ</th>
+                  <th className="py-3 px-3 font-bold min-w-[140px]">የወላጅ/አሳዳጊ ስም</th>
+                  <th className="py-3 px-3 font-bold min-w-[140px]">የወላጅ ስልክ ቁጥር</th>
+                  <th className="py-3 px-3 font-bold min-w-[120px]">መኖሪያ ቀበሌ</th>
                   <th className="py-3 px-3 text-center font-bold w-24 print:hidden">እርምጃዎች</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {filteredChildren.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="py-12 text-center text-slate-500">
+                    <td colSpan={12} className="py-12 text-center text-slate-500">
                       <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                       <p className="font-semibold text-sm">በተመረጠው መስፈርት የተገኘ ልጅ የለም!</p>
                       <p className="text-xs text-slate-400 mt-1">የፍለጋ ቃሉን ወይም ማጣሪያውን ይቀይሩ ወይም አዲስ ልጅ ይመዝግቡ።</p>
@@ -1161,7 +1360,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                         </td>
 
                         {/* Child Name (13pt Bold) */}
-                        <td className="py-2.5 px-4 font-bold text-[13pt] text-slate-900 min-w-[210px] leading-normal">
+                        <td className="py-2.5 px-4 font-bold text-[13pt] text-slate-900 min-w-[200px] leading-normal">
                           <span>{child.name}</span>
                         </td>
 
@@ -1191,6 +1390,22 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                         {/* Age */}
                         <td className="py-2.5 px-3 text-center font-bold text-slate-800 tabular-nums">
                           {child.age ? `${child.age} ዓመት` : '-'}
+                        </td>
+
+                        {/* Education Level */}
+                        <td className="py-2.5 px-3">
+                          <span className="inline-flex items-center gap-1 font-semibold text-[11px] text-indigo-900 bg-indigo-50/90 px-2 py-0.5 rounded-lg border border-indigo-200/70 print:border-none print:bg-transparent print:p-0">
+                            <BookOpen className="w-3 h-3 text-indigo-600 print:hidden shrink-0" />
+                            <span>{child.educationLevel || '-'}</span>
+                          </span>
+                        </td>
+
+                        {/* Occupation */}
+                        <td className="py-2.5 px-3">
+                          <span className="inline-flex items-center gap-1 font-medium text-[11px] text-slate-700 bg-slate-100 px-2 py-0.5 rounded-lg print:border-none print:bg-transparent print:p-0">
+                            <Briefcase className="w-3 h-3 text-slate-500 print:hidden shrink-0" />
+                            <span>{child.occupation || '-'}</span>
+                          </span>
                         </td>
 
                         {/* Sunday School Enrollment Status */}
@@ -1460,6 +1675,31 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                 </div>
               </div>
 
+              {/* Education Level & Occupation */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">የትምህርት ደረጃ</label>
+                  <input
+                    type="text"
+                    placeholder="ምሳሌ፦ 1ኛ ክፍል ወይም KG"
+                    value={formEducationLevel}
+                    onChange={(e) => setFormEducationLevel(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">የስራ ዓይነት</label>
+                  <input
+                    type="text"
+                    placeholder="ምሳሌ፦ ተማሪ ወይም የቤት ውስጥ"
+                    value={formOccupation}
+                    onChange={(e) => setFormOccupation(e.target.value)}
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-medium"
+                  />
+                </div>
+              </div>
+
               {/* Parent Name & Phone */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -1624,51 +1864,67 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         </div>
       )}
 
-      {/* Excel Import Modal */}
+      {/* Excel Import Modal: Smart Church Database 0-14 Filter */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[90vh] flex flex-col">
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-              <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <FileSpreadsheet className="w-5 h-5 text-emerald-700" />
-                <span>ልጆችን ከExcel (.xlsx / .csv) ፋይል ማስገቢያ</span>
-              </h3>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl max-w-4xl w-full p-5 sm:p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95 duration-150 max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between pb-3.5 border-b border-slate-100">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold shrink-0">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-700" />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    ከአጠቃላይ የቤተክርስቲያን ቋት የልጆች መረጃ መጫኛ (ዕድሜ 0-14 ብቻ)
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    ከአጠቃላይ የቤተክርስቲያን አባላት ኤክሴል ፋይል ውስጥ ከ0-14 ዓመት ያሉ ልጆችን ብቻ በራሱ ለይቶ ጾታ፣ ዕድሜ፣ የትምህርት ደረጃ፣ የስራ ዓይነት፣ ቻፕል እና የወላጅ ስልክን ያካትታል።
+                  </p>
+                </div>
+              </div>
               <button
                 type="button"
                 onClick={() => {
                   setIsImportModalOpen(false);
-                  setImportPreview([]);
+                  setImportChildrenPreview([]);
+                  setImportAdultsSkipped([]);
+                  setImportTotalRows(0);
                   setImportFileName('');
                 }}
-                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg"
+                className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-100 transition"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <div className="space-y-4 mt-4 overflow-y-auto pr-1 flex-1">
-              {/* Instructions and Sample download */}
-              <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-xs flex items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <p className="font-bold text-slate-800">ትክክለኛውን የExcel ቅጽ ይጠቀሙ</p>
-                  <p className="text-slate-500 text-[11px]">
-                    የExcel ሰንጠረዡ የልጁ ስም፣ ጾታ፣ ዕድሜ፣ ቻፕል፣ የወላጅ ስም እና ስልክ አምዶችን መያዝ ይችላል።
+              {/* Instructions Banner and Sample Download */}
+              <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-blue-50 p-4 rounded-xl border border-emerald-200/80 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <p className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>ራስ-ሰር የ0-14 ዓመት ልጆች ማጣሪያና አምድ ፈላጊ</span>
+                  </p>
+                  <p className="text-slate-600 text-[11px] leading-relaxed">
+                    ፋይሉ የአዋቂዎችንና የልጆችን መረጃ በአንድ ላይ ቢይዝም ስርዓቱ <strong>ከ0 እስከ 14 ዓመት</strong> ያሉትን ልጆች ብቻ ለይቶ ይመርጣል፤ ከ14 ዓመት በላይ የሆኑ አዋቂዎች በራሳቸው ይዘለላሉ።
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={handleDownloadSampleTemplate}
-                  className="bg-white hover:bg-slate-100 text-blue-900 font-bold text-xs px-3 py-1.5 rounded-lg border border-slate-300 transition shrink-0 flex items-center gap-1 shadow-2xs"
+                  className="bg-white hover:bg-slate-50 text-emerald-900 font-bold text-xs px-3.5 py-2 rounded-xl border border-emerald-300 transition shrink-0 flex items-center gap-1.5 shadow-2xs cursor-pointer hover:scale-[1.01]"
+                  title="የተሟላ የናሙና ኤክሴል ቅጽ ያውርዱ"
                 >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>የExcel ናሙና አውርድ</span>
+                  <Download className="w-4 h-4 text-emerald-700" />
+                  <span>📥 የExcel ናሙና አውርድ</span>
                 </button>
               </div>
 
               {/* Upload Dropzone */}
               <div
                 onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-emerald-400 hover:border-emerald-600 bg-emerald-50/20 hover:bg-emerald-50/40 rounded-2xl p-6 text-center cursor-pointer transition"
+                className="border-2 border-dashed border-emerald-400 hover:border-emerald-600 bg-emerald-50/20 hover:bg-emerald-50/40 rounded-2xl p-6 text-center cursor-pointer transition group"
               >
                 <input
                   type="file"
@@ -1677,71 +1933,234 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                   accept=".xlsx, .xls, .csv"
                   className="hidden"
                 />
-                <FileUp className="w-10 h-10 text-emerald-700 mx-auto mb-2" />
+                <FileUp className="w-10 h-10 text-emerald-700 mx-auto mb-2 group-hover:scale-105 transition-transform" />
                 <p className="text-xs font-bold text-slate-800">
-                  {importFileName ? `የተመረጠ ፋይል፦ ${importFileName}` : 'Excel ወይም CSV ፋይል እዚህ ይጫኑ (Click to Browse)'}
+                  {importFileName ? `የተመረጠ ፋይል፦ ${importFileName}` : 'የቤተክርስቲያን አባላት Excel ወይም CSV ፋይል እዚህ ይጫኑ (Click to Browse)'}
                 </p>
-                <p className="text-[11px] text-slate-400 mt-1">.xlsx, .xls ወይም .csv ፋይሎች ይደገፋሉ</p>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  .xlsx, .xls ወይም .csv ፋይሎች (ጾታ፣ ዕድሜ/የትውልድ ዓመት፣ የትምህርት ደረጃ፣ የስራ ዓይነት፣ ቻፕል፣ የወላጅ ስልክ)
+                </p>
               </div>
 
-              {/* Preview Table */}
-              {importPreview.length > 0 && (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                    <span>የተነበቡ ልጆች ቅድመ-ዕይታ ({importPreview.length} ልጆች ተገኝተዋል)</span>
+              {/* Statistics & Results Strip after file is read */}
+              {importTotalRows > 0 && (
+                <div className="space-y-3">
+                  {/* Stats Pill Matrix */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div className="bg-slate-100 p-3 rounded-xl border border-slate-200 text-center">
+                      <span className="text-[11px] text-slate-500 font-semibold block">በፋይሉ የተገኙ ጠቅላላ ሰዎች</span>
+                      <strong className="text-xl font-extrabold text-slate-800 tabular-nums">{importTotalRows}</strong>
+                    </div>
+
+                    <div className="bg-emerald-50 p-3 rounded-xl border border-emerald-200 text-center">
+                      <span className="text-[11px] text-emerald-800 font-bold block flex items-center justify-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>የተመረጡ ልጆች (ከ0-14 ዓመት)</span>
+                      </span>
+                      <strong className="text-xl font-extrabold text-emerald-900 tabular-nums">{importChildrenPreview.length} ልጆች</strong>
+                    </div>
+
+                    <div className="bg-amber-50 p-3 rounded-xl border border-amber-200 text-center">
+                      <span className="text-[11px] text-amber-800 font-bold block flex items-center justify-center gap-1">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
+                        <span>የተዘለሉ አዋቂዎች (ከ14 ዓመት በላይ)</span>
+                      </span>
+                      <strong className="text-xl font-extrabold text-amber-900 tabular-nums">{importAdultsSkipped.length} ሰዎች</strong>
+                    </div>
                   </div>
-                  <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-xl">
-                    <table className="w-full text-left text-xs border-collapse">
-                      <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0">
-                        <tr>
-                          <th className="py-2 px-2 text-center w-8">#</th>
-                          <th className="py-2 px-3">ስም</th>
-                          <th className="py-2 px-2">ቻፕል</th>
-                          <th className="py-2 px-2 text-center">ጾታ</th>
-                          <th className="py-2 px-2 text-center">ዕድሜ</th>
-                          <th className="py-2 px-3">ወላጅ</th>
-                          <th className="py-2 px-3">ስልክ</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100">
-                        {importPreview.slice(0, 100).map((row, idx) => (
-                          <tr key={`imp_${idx}`} className="hover:bg-slate-50">
-                            <td className="py-1.5 px-2 text-center text-slate-400">{idx + 1}</td>
-                            <td className="py-1.5 px-3 font-bold text-slate-900">{row.name}</td>
-                            <td className="py-1.5 px-2 text-blue-900 font-bold">{row.chapel || '-'}</td>
-                            <td className="py-1.5 px-2 text-center font-bold">{row.gender}</td>
-                            <td className="py-1.5 px-2 text-center tabular-nums">{row.age}</td>
-                            <td className="py-1.5 px-3 text-slate-600">{row.parentName || '-'}</td>
-                            <td className="py-1.5 px-3 font-mono text-[11px]">{row.phone || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+
+                  {/* Tabs: Children to import VS Skipped Adults */}
+                  <div className="flex items-center gap-2 border-b border-slate-200 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setImportActiveTab('children')}
+                      className={`pb-2 px-3 text-xs font-bold transition border-b-2 flex items-center gap-1.5 ${
+                        importActiveTab === 'children'
+                          ? 'border-emerald-600 text-emerald-900'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <span>👶 የሚገቡ የ0-14 ዓመት ልጆች</span>
+                      <span className="bg-emerald-100 text-emerald-800 px-2 py-0.2 rounded-full text-[10px]">
+                        {importChildrenPreview.length}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setImportActiveTab('adults')}
+                      className={`pb-2 px-3 text-xs font-bold transition border-b-2 flex items-center gap-1.5 ${
+                        importActiveTab === 'adults'
+                          ? 'border-amber-600 text-amber-900'
+                          : 'border-transparent text-slate-500 hover:text-slate-800'
+                      }`}
+                    >
+                      <span>👤 የተዘለሉ አዋቂዎች (ከ14 ዓመት በላይ)</span>
+                      <span className="bg-amber-100 text-amber-800 px-2 py-0.2 rounded-full text-[10px]">
+                        {importAdultsSkipped.length}
+                      </span>
+                    </button>
                   </div>
+
+                  {/* Tab 1: Children to Import Preview Table */}
+                  {importActiveTab === 'children' && (
+                    <div className="space-y-3">
+                      {importChildrenPreview.length === 0 ? (
+                        <div className="p-8 text-center bg-slate-50 rounded-xl text-slate-500 text-xs">
+                          በፋይሉ ውስጥ ከ0-14 ዓመት የሆነ ልጅ አልተገኘም! እባክዎ ፋይልዎን ያረጋግጡ።
+                        </div>
+                      ) : (
+                        <div className="max-h-64 overflow-y-auto border border-slate-200 rounded-xl">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead className="bg-slate-900 text-white font-bold sticky top-0 text-[11px]">
+                              <tr>
+                                <th className="py-2 px-2 text-center w-8">#</th>
+                                <th className="py-2 px-3 font-extrabold text-[12pt] text-white">የልጁ ስም</th>
+                                <th className="py-2 px-2 text-center">ጾታ</th>
+                                <th className="py-2 px-2 text-center">ዕድሜ</th>
+                                <th className="py-2 px-2.5">የትምህርት ደረጃ</th>
+                                <th className="py-2 px-2.5">የስራ ዓይነት</th>
+                                <th className="py-2 px-2.5">ቻፕል</th>
+                                <th className="py-2 px-2.5">የወላጅ ስም</th>
+                                <th className="py-2 px-2.5">የወላጅ ስልክ</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                              {importChildrenPreview.map((row, idx) => (
+                                <tr key={`child_prev_${idx}`} className="hover:bg-emerald-50/40">
+                                  <td className="py-1.5 px-2 text-center text-slate-400">{idx + 1}</td>
+                                  <td className="py-1.5 px-3 font-bold text-slate-900 text-[12pt]">{row.name}</td>
+                                  <td className="py-1.5 px-2 text-center font-bold">
+                                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${row.gender === 'ሴ' ? 'bg-rose-100 text-rose-800' : 'bg-blue-100 text-blue-800'}`}>
+                                      {row.gender}
+                                    </span>
+                                  </td>
+                                  <td className="py-1.5 px-2 text-center font-bold tabular-nums text-slate-800">{row.age} ዓመት</td>
+                                  <td className="py-1.5 px-2.5 text-indigo-900 font-semibold">{row.educationLevel || '-'}</td>
+                                  <td className="py-1.5 px-2.5 text-slate-700">{row.occupation || '-'}</td>
+                                  <td className="py-1.5 px-2.5 text-blue-900 font-bold">{row.chapel || '-'}</td>
+                                  <td className="py-1.5 px-2.5 text-slate-600">{row.parentName || '-'}</td>
+                                  <td className="py-1.5 px-2.5 font-mono text-[11px] font-bold text-emerald-900">{row.phone || '-'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+
+                      {/* Import Mode Selector */}
+                      {importChildrenPreview.length > 0 && (
+                        <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                          <span className="font-bold text-slate-800">የማስገቢያ ስልት ይምረጡ፦</span>
+                          <div className="flex items-center gap-4">
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="importMode"
+                                value="append"
+                                checked={importMode === 'append'}
+                                onChange={() => setImportMode('append')}
+                                className="text-emerald-600 focus:ring-emerald-500"
+                              />
+                              <span className="font-medium text-slate-700">አሁን ባለው ቋት ላይ ጨምር (Append)</span>
+                            </label>
+                            <label className="flex items-center gap-1.5 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="importMode"
+                                value="replace"
+                                checked={importMode === 'replace'}
+                                onChange={() => setImportMode('replace')}
+                                className="text-rose-600 focus:ring-rose-500"
+                              />
+                              <span className="font-medium text-rose-800">ቀድሞ የነበሩትን አጽድተህ ተካ (Replace)</span>
+                            </label>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tab 2: Skipped Adults Preview Table */}
+                  {importActiveTab === 'adults' && (
+                    <div className="space-y-2">
+                      <p className="text-[11px] text-slate-500">
+                        እነዚህ አባላት ከ14 ዓመት በላይ በመሆናቸው በልጆች ቋት ውስጥ አልተካተቱም፦
+                      </p>
+                      {importAdultsSkipped.length === 0 ? (
+                        <div className="p-6 text-center bg-slate-50 rounded-xl text-slate-500 text-xs">
+                          ምንም የተዘለለ አዋቂ የለም (ሁሉም 0-14 ዓመት ናቸው)።
+                        </div>
+                      ) : (
+                        <div className="max-h-60 overflow-y-auto border border-amber-200 rounded-xl">
+                          <table className="w-full text-left text-xs border-collapse">
+                            <thead className="bg-amber-100 text-amber-950 font-bold sticky top-0">
+                              <tr>
+                                <th className="py-2 px-2 text-center w-8">#</th>
+                                <th className="py-2 px-3">የአባሉ ስም</th>
+                                <th className="py-2 px-2 text-center">ጾታ</th>
+                                <th className="py-2 px-2 text-center">ዕድሜ</th>
+                                <th className="py-2 px-3">የተዘለለበት ምክንያት</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-amber-100">
+                              {importAdultsSkipped.slice(0, 100).map((row, idx) => (
+                                <tr key={`adult_${idx}`} className="hover:bg-amber-50/50">
+                                  <td className="py-1.5 px-2 text-center text-slate-400">{idx + 1}</td>
+                                  <td className="py-1.5 px-3 font-bold text-slate-800">{row.name}</td>
+                                  <td className="py-1.5 px-2 text-center">{row.gender}</td>
+                                  <td className="py-1.5 px-2 text-center font-bold tabular-nums">{row.age} ዓመት</td>
+                                  <td className="py-1.5 px-3 text-amber-800 font-medium">{row.reason}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-4 border-t border-slate-100 mt-3">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsImportModalOpen(false);
-                  setImportPreview([]);
-                  setImportFileName('');
-                }}
-                className="px-4 py-2 text-xs font-semibold text-slate-600"
-              >
-                ሰርዝ
-              </button>
-              <button
-                type="button"
-                disabled={importPreview.length === 0}
-                onClick={handleConfirmImport}
-                className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-300 text-white font-bold text-xs px-5 py-2 rounded-xl transition shadow-xs"
-              >
-                {importPreview.length > 0 ? `ሁሉንም (${importPreview.length}) አስገባ` : 'መረጃ አልተመረጠም'}
-              </button>
+            {/* Modal Bottom Actions */}
+            <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-3">
+              <span className="text-xs text-slate-500">
+                {importChildrenPreview.length > 0 && (
+                  <span>
+                    ለማስገባት የተዘጋጁ፦ <strong className="text-emerald-900 font-extrabold">{importChildrenPreview.length} ልጆች</strong>
+                  </span>
+                )}
+              </span>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsImportModalOpen(false);
+                    setImportChildrenPreview([]);
+                    setImportAdultsSkipped([]);
+                    setImportTotalRows(0);
+                    setImportFileName('');
+                  }}
+                  className="px-4 py-2 text-xs font-semibold text-slate-600 hover:text-slate-800 rounded-xl"
+                >
+                  ሰርዝ
+                </button>
+                <button
+                  type="button"
+                  disabled={importChildrenPreview.length === 0}
+                  onClick={handleConfirmImport}
+                  className="bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-300 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-xs flex items-center gap-2 cursor-pointer hover:scale-[1.01] active:scale-95"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  <span>
+                    {importChildrenPreview.length > 0
+                      ? `📥 የተመረጡትን ${importChildrenPreview.length} ልጆች አስገባ`
+                      : 'የተመረጠ ልጅ የለም'}
+                  </span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

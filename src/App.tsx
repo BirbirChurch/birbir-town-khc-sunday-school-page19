@@ -699,7 +699,10 @@ export default function App() {
     }));
   };
 
-  const handleBatchAddChurchChildren = (children: Omit<ChurchChild, 'id'>[]) => {
+  const handleBatchAddChurchChildren = (
+    children: Omit<ChurchChild, 'id'>[],
+    mode: 'append' | 'replace' = 'append'
+  ) => {
     if (!children.length) return;
     const withIds: ChurchChild[] = children.map((c) => ({
       ...c,
@@ -708,7 +711,7 @@ export default function App() {
     updateAppData(
       (prev) => ({
         ...prev,
-        churchChildren: [...(prev.churchChildren || []), ...withIds]
+        churchChildren: mode === 'replace' ? withIds : [...(prev.churchChildren || []), ...withIds]
       }),
       { immediate: true }
     );

@@ -100,6 +100,8 @@ export interface ChurchChild {
   name: string; // የልጁ ሙሉ ስም
   gender: 'ወ' | 'ሴ' | string; // ጾታ
   age: number | string; // ዕድሜ
+  educationLevel?: string; // የትምህርት ደረጃ (e.g., ኬጂ፣ 1ኛ ክፍል፣ 2ኛ ክፍል፣ ወዘተ)
+  occupation?: string; // የስራ ዓይነት (e.g., ተማሪ፣ የቤት ውስጥ፣ ወዘተ)
   chapel?: string; // ቻፕል / አጥቢያ ማዕከል
   parentName?: string; // የወላጅ/አሳዳጊ ስም
   phone?: string; // የወላጅ ስልክ ቁጥር
