@@ -88,36 +88,45 @@ export const DEFAULT_ANNUAL_PLAN: AnnualPlanItem[] = [
   { id: 24, task: "የሩብ ዓመት ዕቅድ ክንውን መገምገም", unit: "በዙር", yearPlan: 4, q1Plan: 1, q2Plan: 1, q3Plan: 1, q4Plan: 1, q1Done: 1, q2Done: 0, q3Done: 0, q4Done: 0, role: "አስተባባሪና መሪዎች" }
 ];
 
+export const DEFAULT_CHAPELS: string[] = [
+  "ዋናው ማዕከል ቻፕል",
+  "ቤቴል ቻፕል",
+  "ሰላም ቻፕል",
+  "አማኑኤል ቻፕል",
+  "ጽዮን ቻፕል",
+  "ገነት ቻፕል"
+];
+
 export const INITIAL_CHURCH_CHILDREN: ChurchChild[] = [
   // 0 - 3 ዓመት
-  { id: 101, name: "ዮናታን ዳዊት", gender: "ወ", age: 2, parentName: "ዳዊት ታደሰ", phone: "0911223344", residence: "ቀበሌ 01", fellowshipOrVillage: "ቤቴል ህብረት", notes: "ህፃን", registeredDate: "2019-01-10" },
-  { id: 102, name: "ሩት ተስፋዬ", gender: "ሴ", age: 1, parentName: "አስቴር በቀለ", phone: "0922334455", residence: "ቀበሌ 02", fellowshipOrVillage: "ሰላም ህብረት", notes: "ህፃን", registeredDate: "2019-01-12" },
-  { id: 103, name: "ሰሎሞን ኤልያስ", gender: "ወ", age: 3, parentName: "ኤልያስ ዮሴፍ", phone: "0933445566", residence: "አባቦ መንደር", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-15" },
-  { id: 104, name: "ቤርሳቤህ ማርቆስ", gender: "ሴ", age: 2, parentName: "ማርቆስ ዶላ", phone: "0944556677", residence: "መንደር 3", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-20" },
+  { id: 101, name: "ዮናታን ዳዊት", gender: "ወ", age: 2, chapel: "ዋናው ማዕከል ቻፕል", parentName: "ዳዊት ታደሰ", phone: "0911223344", residence: "ቀበሌ 01", fellowshipOrVillage: "ቤቴል ህብረት", notes: "ህፃን", registeredDate: "2019-01-10" },
+  { id: 102, name: "ሩት ተስፋዬ", gender: "ሴ", age: 1, chapel: "ሰላም ቻፕል", parentName: "አስቴር በቀለ", phone: "0922334455", residence: "ቀበሌ 02", fellowshipOrVillage: "ሰላም ህብረት", notes: "ህፃን", registeredDate: "2019-01-12" },
+  { id: 103, name: "ሰሎሞን ኤልያስ", gender: "ወ", age: 3, chapel: "አማኑኤል ቻፕል", parentName: "ኤልያስ ዮሴፍ", phone: "0933445566", residence: "አባቦ መንደር", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-15" },
+  { id: 104, name: "ቤርሳቤህ ማርቆስ", gender: "ሴ", age: 2, chapel: "ጽዮን ቻፕል", parentName: "ማርቆስ ዶላ", phone: "0944556677", residence: "መንደር 3", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-20" },
 
   // 4 - 6 ዓመት
-  { id: 105, name: "ሳሙኤል ተመስጌን", gender: "ወ", age: 5, parentName: "ተመስጌን መርድነህ", phone: "0912345678", residence: "ቀበሌ 01", fellowshipOrVillage: "ቤቴል ህብረት", notes: "", registeredDate: "2019-01-10" },
-  { id: 106, name: "ኤልሳቤጥ አበበ", gender: "ሴ", age: 6, parentName: "አበበ አሻንጎ", phone: "0923456789", residence: "ቀበሌ 02", fellowshipOrVillage: "ሰላም ህብረት", notes: "", registeredDate: "2019-01-11" },
-  { id: 107, name: "ዳንኤል ሙሉቀን", gender: "ወ", age: 4, parentName: "ሙሉቀን ዘለቀ", phone: "0934567890", residence: "መንደር 1", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-14" },
-  { id: 108, name: "ሐና ፍቅሩ", gender: "ሴ", age: 5, parentName: "ፍቅሩ አበበ", phone: "0945678901", residence: "ቀበሌ 03", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-18" },
+  { id: 105, name: "ሳሙኤል ተመስጌን", gender: "ወ", age: 5, chapel: "ቤቴል ቻፕል", parentName: "ተመስጌን መርድነህ", phone: "0912345678", residence: "ቀበሌ 01", fellowshipOrVillage: "ቤቴል ህብረት", notes: "", registeredDate: "2019-01-10" },
+  { id: 106, name: "ኤልሳቤጥ አበበ", gender: "ሴ", age: 6, chapel: "ዋናው ማዕከል ቻፕል", parentName: "አበበ አሻንጎ", phone: "0923456789", residence: "ቀበሌ 02", fellowshipOrVillage: "ሰላም ህብረት", notes: "", registeredDate: "2019-01-11" },
+  { id: 107, name: "ዳንኤል ሙሉቀን", gender: "ወ", age: 4, chapel: "አማኑኤል ቻፕል", parentName: "ሙሉቀን ዘለቀ", phone: "0934567890", residence: "መንደር 1", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-14" },
+  { id: 108, name: "ሐና ፍቅሩ", gender: "ሴ", age: 5, chapel: "ጽዮን ቻፕል", parentName: "ፍቅሩ አበበ", phone: "0945678901", residence: "ቀበሌ 03", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-18" },
 
   // 7 - 9 ዓመት
-  { id: 109, name: "አማኑኤል መሠረት", gender: "ወ", age: 8, parentName: "መሠረት ሌቃ", phone: "0956789012", residence: "ቀበሌ 01", fellowshipOrVillage: "ቤቴል ህብረት", notes: "", registeredDate: "2019-01-08" },
-  { id: 110, name: "ሰላማዊት መላኩ", gender: "ሴ", age: 7, parentName: "መላኩ መጃ", phone: "0967890123", residence: "መንደር 2", fellowshipOrVillage: "ሰላም ህብረት", notes: "", registeredDate: "2019-01-09" },
-  { id: 111, name: "ኢዮብ ጌታሁን", gender: "ወ", age: 9, parentName: "ጌታሁን ኢሳያስ", phone: "0978901234", residence: "ቀበሌ 02", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-15" },
-  { id: 112, name: "ማርታ ሀብታሙ", gender: "ሴ", age: 8, parentName: "ሀብታሙ በዛንህ", phone: "0989012345", residence: "ቀበሌ 01", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-19" },
+  { id: 109, name: "አማኑኤል መሠረት", gender: "ወ", age: 8, chapel: "ቤቴል ቻፕል", parentName: "መሠረት ሌቃ", phone: "0956789012", residence: "ቀበሌ 01", fellowshipOrVillage: "ቤቴል ህብረት", notes: "", registeredDate: "2019-01-08" },
+  { id: 110, name: "ሰላማዊት መላኩ", gender: "ሴ", age: 7, chapel: "ሰላም ቻፕል", parentName: "መላኩ መጃ", phone: "0967890123", residence: "መንደር 2", fellowshipOrVillage: "ሰላም ህብረት", notes: "", registeredDate: "2019-01-09" },
+  { id: 111, name: "ኢዮብ ጌታሁን", gender: "ወ", age: 9, chapel: "ዋናው ማዕከል ቻፕል", parentName: "ጌታሁን ኢሳያስ", phone: "0978901234", residence: "ቀበሌ 02", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-15" },
+  { id: 112, name: "ማርታ ሀብታሙ", gender: "ሴ", age: 8, chapel: "ገነት ቻፕል", parentName: "ሀብታሙ በዛንህ", phone: "0989012345", residence: "ቀበሌ 01", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-19" },
 
   // 10 - 12 ዓመት
-  { id: 113, name: "ሚካኤል አስራት", gender: "ወ", age: 11, parentName: "አስራት አማኑኤል", phone: "0911002233", residence: "ቀበሌ 03", fellowshipOrVillage: "ቤቴል ህብረት", notes: "", registeredDate: "2019-01-07" },
-  { id: 114, name: "ራሔል አሸናፊ", gender: "ሴ", age: 10, parentName: "አሸናፊ ጫፋ", phone: "0922113344", residence: "ቀበሌ 01", fellowshipOrVillage: "ሰላም ህብረት", notes: "", registeredDate: "2019-01-10" },
-  { id: 115, name: "ዮሐንስ ምንተስኖት", gender: "ወ", age: 12, parentName: "ምንተስኖት መንግስቱ", phone: "0933224455", residence: "ቀበሌ 02", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-16" },
-  { id: 116, name: "ርብቃ ሄኖክ", gender: "ሴ", age: 11, parentName: "ሄኖክ ኖኅ", phone: "0944335566", residence: "መንደር 4", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-21" },
+  { id: 113, name: "ሚካኤል አስራት", gender: "ወ", age: 11, chapel: "ቤቴል ቻፕል", parentName: "አስራት አማኑኤል", phone: "0911002233", residence: "ቀበሌ 03", fellowshipOrVillage: "ቤቴል ህብረት", notes: "", registeredDate: "2019-01-07" },
+  { id: 114, name: "ራሔል አሸናፊ", gender: "ሴ", age: 10, chapel: "ሰላም ቻፕል", parentName: "አሸናፊ ጫፋ", phone: "0922113344", residence: "ቀበሌ 01", fellowshipOrVillage: "ሰላም ህብረት", notes: "", registeredDate: "2019-01-10" },
+  { id: 115, name: "ዮሐንስ ምንተስኖት", gender: "ወ", age: 12, chapel: "አማኑኤል ቻፕል", parentName: "ምንተስኖት መንግስቱ", phone: "0933224455", residence: "ቀበሌ 02", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-16" },
+  { id: 116, name: "ርብቃ ሄኖክ", gender: "ሴ", age: 11, chapel: "ጽዮን ቻፕል", parentName: "ሄኖክ ኖኅ", phone: "0944335566", residence: "መንደር 4", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-21" },
 
   // 13 - 14 ዓመት
-  { id: 117, name: "ዳዊት መስፍን", gender: "ወ", age: 14, parentName: "መስፍን ማንጁራ", phone: "0955446677", residence: "ቀበሌ 01", fellowshipOrVillage: "ቤቴል ህብረት", notes: "", registeredDate: "2019-01-05" },
-  { id: 118, name: "ዮዲት አለሙ", gender: "ሴ", age: 13, parentName: "አለሙ ሌራ", phone: "0966557788", residence: "ቀበሌ 02", fellowshipOrVillage: "ሰላም ህብረት", notes: "", registeredDate: "2019-01-12" },
-  { id: 119, name: "ናትናኤል መብራቱ", gender: "ወ", age: 13, parentName: "መብራቱ ሞላ", phone: "0977668899", residence: "መንደር 1", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-14" },
-  { id: 120, name: "ኤልሳ አሰገደች", gender: "ሴ", age: 14, parentName: "አሰገደች አየለ", phone: "0988779900", residence: "ቀበሌ 03", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-22" }
+  { id: 117, name: "ዳዊት መስፍን", gender: "ወ", age: 14, chapel: "ዋናው ማዕከል ቻፕል", parentName: "መስፍን ማንጁራ", phone: "0955446677", residence: "ቀበሌ 01", fellowshipOrVillage: "ቤቴል ህብረት", notes: "", registeredDate: "2019-01-05" },
+  { id: 118, name: "ዮዲት አለሙ", gender: "ሴ", age: 13, chapel: "ሰላም ቻፕል", parentName: "አለሙ ሌራ", phone: "0966557788", residence: "ቀበሌ 02", fellowshipOrVillage: "ሰላም ህብረት", notes: "", registeredDate: "2019-01-12" },
+  { id: 119, name: "ናትናኤል መብራቱ", gender: "ወ", age: 13, chapel: "አማኑኤል ቻፕል", parentName: "መብራቱ ሞላ", phone: "0977668899", residence: "መንደር 1", fellowshipOrVillage: "አማኑኤል ህብረት", notes: "", registeredDate: "2019-01-14" },
+  { id: 120, name: "ኤልሳ አሰገደች", gender: "ሴ", age: 14, chapel: "ገነት ቻፕል", parentName: "አሰገደች አየለ", phone: "0988779900", residence: "ቀበሌ 03", fellowshipOrVillage: "ጽዮን ህብረት", notes: "", registeredDate: "2019-01-22" }
 ];
 
 export const INITIAL_APP_DATA: AppData = {
@@ -142,6 +151,7 @@ export const INITIAL_APP_DATA: AppData = {
   weekDates: {},
   plans: DEFAULT_ANNUAL_PLAN,
   students: {},
+  chapels: DEFAULT_CHAPELS,
   churchChildren: INITIAL_CHURCH_CHILDREN
 };
 

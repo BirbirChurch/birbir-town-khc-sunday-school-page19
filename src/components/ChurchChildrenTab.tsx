@@ -22,17 +22,23 @@ import {
   FileUp,
   HelpCircle,
   UserCheck,
-  ChevronRight
+  ChevronRight,
+  Church,
+  Copy,
+  Check,
+  PhoneCall
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { ChurchChild, Student, Role } from '../types';
 import { generateUniqueId } from '../utils/idGenerator';
-import { downloadXLSX, parseCSVLine } from '../utils/csv';
+import { downloadXLSX } from '../utils/csv';
+import { DEFAULT_CHAPELS } from '../constants/initialData';
 
 interface ChurchChildrenTabProps {
   currentYear: string;
   classList: string[];
   churchChildren: ChurchChild[];
+  chapelList?: string[];
   studentsByClass: { [className: string]: Student[] };
   onAddChild: (child: Omit<ChurchChild, 'id'>) => void;
   onUpdateChild: (child: ChurchChild) => void;
@@ -40,7 +46,7 @@ interface ChurchChildrenTabProps {
   onBatchAddChildren: (children: Omit<ChurchChild, 'id'>[]) => void;
   onEnrollToSundaySchool: (child: ChurchChild, targetClass: string) => void;
   onImportMissingStudentsToChurchChildren: (
-    students: { name: string; gender: string; age: number | string; className: string }[]
+    students: { name: string; gender: string; age: number | string; className: string; chapel?: string; phone?: string }[]
   ) => void;
   currentUserRole: Role | null;
 }
@@ -64,6 +70,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
   currentYear,
   classList,
   churchChildren = [],
+  chapelList = DEFAULT_CHAPELS,
   studentsByClass = {},
   onAddChild,
   onUpdateChild,
@@ -78,6 +85,8 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
   const [viewFilter, setViewFilter] = useState<ViewFilter>('all');
   const [ageFilter, setAgeFilter] = useState<AgeFilter>('all');
   const [genderFilter, setGenderFilter] = useState<string>('all');
+  const [selectedChapelFilter, setSelectedChapelFilter] = useState<string>('all');
+  const [copiedPhoneId, setCopiedPhoneId] = useState<number | null>(null);
 
   // Modals
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
@@ -90,6 +99,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
   const [formName, setFormName] = useState<string>('');
   const [formGender, setFormGender] = useState<'ወ' | 'ሴ' | ''>('ወ');
   const [formAge, setFormAge] = useState<string>('5');
+  const [formChapel, setFormChapel] = useState<string>(chapelList[0] || 'ዋናው ማዕከል ቻፕል');
   const [formParent, setFormParent] = useState<string>('');
   const [formPhone, setFormPhone] = useState<string>('');
   const [formResidence, setFormResidence] = useState<string>('');
@@ -149,7 +159,40 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
     return missing;
   }, [churchChildren, sundaySchoolIndex]);
 
-  // 4. Age Demographic Cohorts Calculation (0-3, 4-6, 7-9, 10-12, 13-14, 15+)
+  // 4. Chapel Breakdown Statistics Matrix
+  const chapelStats = useMemo(() => {
+    const chapels = Array.from(
+      new Set([
+        ...chapelList,
+        ...churchChildrenWithStatus.map((c) => c.chapel).filter(Boolean) as string[]
+      ])
+    );
+
+    const statsMap: { [chapel: string]: { total: number; enrolled: number; notEnrolled: number; male: number; female: number } } = {};
+    chapels.forEach((ch) => {
+      statsMap[ch] = { total: 0, enrolled: 0, notEnrolled: 0, male: 0, female: 0 };
+    });
+
+    churchChildrenWithStatus.forEach((child) => {
+      const ch = child.chapel || 'ያልተገለጸ ቻፕል';
+      if (!statsMap[ch]) {
+        statsMap[ch] = { total: 0, enrolled: 0, notEnrolled: 0, male: 0, female: 0 };
+      }
+      statsMap[ch].total++;
+      if (child.gender === 'ወ') statsMap[ch].male++;
+      if (child.gender === 'ሴ') statsMap[ch].female++;
+
+      if (child.isEnrolled) statsMap[ch].enrolled++;
+      else statsMap[ch].notEnrolled++;
+    });
+
+    return {
+      chapels: Object.keys(statsMap),
+      statsMap
+    };
+  }, [chapelList, churchChildrenWithStatus]);
+
+  // 5. Age Demographic Cohorts Calculation (0-3, 4-6, 7-9, 10-12, 13-14, 15+)
   const demographicStats = useMemo(() => {
     const cohorts = [
       { key: '0-3', label: 'ከ0 - 3 ዓመት (ጨቅላና ህፃናት)', min: 0, max: 3, male: 0, female: 0, total: 0, enrolled: 0, notEnrolled: 0 },
@@ -209,18 +252,19 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
     };
   }, [churchChildrenWithStatus]);
 
-  // 5. Filtered Church Children
+  // 6. Filtered Church Children
   const filteredChildren = useMemo(() => {
     return churchChildrenWithStatus.filter((child) => {
-      // 1. Search term
+      // 1. Search term (Name, Parent, Phone, Residence, Chapel)
       if (searchTerm.trim()) {
         const q = searchTerm.toLowerCase();
         const matchesName = child.name?.toLowerCase().includes(q);
         const matchesParent = child.parentName?.toLowerCase().includes(q);
         const matchesPhone = child.phone?.toLowerCase().includes(q);
         const matchesResidence = child.residence?.toLowerCase().includes(q);
+        const matchesChapel = child.chapel?.toLowerCase().includes(q);
         const matchesVillage = child.fellowshipOrVillage?.toLowerCase().includes(q);
-        if (!matchesName && !matchesParent && !matchesPhone && !matchesResidence && !matchesVillage) {
+        if (!matchesName && !matchesParent && !matchesPhone && !matchesResidence && !matchesChapel && !matchesVillage) {
           return false;
         }
       }
@@ -229,10 +273,15 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
       if (viewFilter === 'enrolled' && !child.isEnrolled) return false;
       if (viewFilter === 'not_enrolled' && child.isEnrolled) return false;
 
-      // 3. Gender filter
+      // 3. Chapel filter
+      if (selectedChapelFilter !== 'all' && (child.chapel || 'ያልተገለጸ ቻፕል') !== selectedChapelFilter) {
+        return false;
+      }
+
+      // 4. Gender filter
       if (genderFilter !== 'all' && child.gender !== genderFilter) return false;
 
-      // 4. Age filter
+      // 5. Age filter
       if (ageFilter !== 'all') {
         const numAge = parseInt(String(child.age || '0'), 10) || 0;
         if (ageFilter === '0-3' && (numAge < 0 || numAge > 3)) return false;
@@ -245,7 +294,15 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
 
       return true;
     });
-  }, [churchChildrenWithStatus, searchTerm, viewFilter, genderFilter, ageFilter]);
+  }, [churchChildrenWithStatus, searchTerm, viewFilter, selectedChapelFilter, genderFilter, ageFilter]);
+
+  // Copy phone handler
+  const handleCopyPhone = (id: number, phone: string) => {
+    if (!phone) return;
+    navigator.clipboard.writeText(phone);
+    setCopiedPhoneId(id);
+    setTimeout(() => setCopiedPhoneId(null), 2000);
+  };
 
   // Modal helpers
   const openAddModal = () => {
@@ -253,6 +310,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
     setFormName('');
     setFormGender('ወ');
     setFormAge('5');
+    setFormChapel(chapelList[0] || 'ዋናው ማዕከል ቻፕል');
     setFormParent('');
     setFormPhone('');
     setFormResidence('');
@@ -266,6 +324,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
     setFormName(child.name);
     setFormGender((child.gender as 'ወ' | 'ሴ') || 'ወ');
     setFormAge(String(child.age || '5'));
+    setFormChapel(child.chapel || chapelList[0] || 'ዋናው ማዕከል ቻፕል');
     setFormParent(child.parentName || '');
     setFormPhone(child.phone || '');
     setFormResidence(child.residence || '');
@@ -285,6 +344,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
       name: formName.trim(),
       gender: formGender || 'ወ',
       age: parseInt(formAge, 10) || 5,
+      chapel: formChapel.trim() || undefined,
       parentName: formParent.trim() || undefined,
       phone: formPhone.trim() || undefined,
       residence: formResidence.trim() || undefined,
@@ -322,7 +382,9 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
       name: item.student.name,
       gender: item.student.gender || 'ወ',
       age: item.student.age || 7,
-      className: item.className
+      className: item.className,
+      chapel: item.student.chapel || chapelList[0] || 'ዋናው ማዕከል ቻፕል',
+      phone: item.student.phone
     }));
 
     onImportMissingStudentsToChurchChildren(toImport);
@@ -336,7 +398,9 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         name: item.student.name,
         gender: item.student.gender || 'ወ',
         age: item.student.age || 7,
-        className: item.className
+        className: item.className,
+        chapel: item.student.chapel || chapelList[0] || 'ዋናው ማዕከል ቻፕል',
+        phone: item.student.phone
       }
     ]);
   };
@@ -350,12 +414,13 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
       'ጾታ',
       'ዕድሜ',
       'የዕድሜ ምድብ',
-      'የወላጅ/አሳዳጊ ስም',
-      'ስልክ ቁጥር',
-      'መኖሪያ አካባቢ',
-      'ህብረት/መንደር',
+      'ቻፕል (አጥቢያ)',
       'በሰንበት ት/ቤት ይማራል?',
       'የሰንበት ት/ቤት ክፍል',
+      'የወላጅ/አሳዳጊ ስም',
+      'የወላጅ ስልክ ቁጥር',
+      'መኖሪያ አካባቢ',
+      'ህብረት/መንደር',
       'የተመዘገበበት ቀን',
       'ማስታወሻ'
     ];
@@ -375,18 +440,27 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         c.gender === 'ወ' ? 'ወንድ' : c.gender === 'ሴ' ? 'ሴት' : '-',
         c.age || '-',
         ageGroupStr,
+        c.chapel || 'ዋናው ማዕከል ቻፕል',
+        c.isEnrolled ? 'አዎ (ይማራል)' : 'አይማርም',
+        c.enrolledClass || '-',
         c.parentName || '-',
         c.phone || '-',
         c.residence || '-',
         c.fellowshipOrVillage || '-',
-        c.isEnrolled ? 'አዎ (ይማራል)' : 'አይማርም',
-        c.enrolledClass || '-',
         c.registeredDate || '-',
         c.notes || ''
       ];
     });
 
-    // Sheet 2: Demographic stats table
+    // Sheet 2: Chapel breakdown stats
+    const chapelHeaders = ['ቻፕል (አጥቢያ ማዕከል)', 'ጠቅላላ ልጆች', 'በሰንበት ት/ቤት የሚማሩ', 'የማይማሩ', 'ወንድ', 'ሴት', 'የመማር ምጣኔ (%)'];
+    const chapelRows = chapelStats.chapels.map((ch) => {
+      const st = chapelStats.statsMap[ch];
+      const rate = st.total > 0 ? `${Math.round((st.enrolled / st.total) * 100)}%` : '0%';
+      return [ch, st.total, st.enrolled, st.notEnrolled, st.male, st.female, rate];
+    });
+
+    // Sheet 3: Age Demographic stats table
     const statHeaders = ['የዕድሜ ምድብ', 'ወንድ', 'ሴት', 'ድምር', 'በሰንበት ት/ቤት የሚማሩ', 'የማይማሩ', 'የመቶኛ ድርሻ (%)'];
     const statRows = demographicStats.cohorts.map((coh) => [
       coh.label,
@@ -399,18 +473,10 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         ? `${Math.round((coh.total / demographicStats.totalChildren) * 100)}%`
         : '0%'
     ]);
-    statRows.push([
-      'ጠቅላላ ድምር',
-      demographicStats.totalMale,
-      demographicStats.totalFemale,
-      demographicStats.totalChildren,
-      demographicStats.totalEnrolled,
-      demographicStats.totalNotEnrolled,
-      '100%'
-    ]);
 
     const sheets = [
-      { name: 'የልጆች ዝርዝር', data: [headers, ...rows] },
+      { name: 'የልጆች ዝርዝር & ቻፕል', data: [headers, ...rows] },
+      { name: 'የቻፕሎች ስታትስቲክስ', data: [chapelHeaders, ...chapelRows] },
       { name: 'የዕድሜ ምድብ ስታቲስቲክስ', data: [statHeaders, ...statRows] }
     ];
 
@@ -426,13 +492,13 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
 
   // Download Sample Excel Template
   const handleDownloadSampleTemplate = () => {
-    const headers = ['የልጁ ሙሉ ስም', 'ጾታ (ወ/ሴ)', 'ዕድሜ', 'የወላጅ ስም', 'ስልክ ቁጥር', 'መኖሪያ አካባቢ', 'ህብረት/መንደር', 'ማስታወሻ'];
+    const headers = ['የልጁ ሙሉ ስም', 'ጾታ (ወ/ሴ)', 'ዕድሜ', 'ቻፕል', 'የወላጅ ስም', 'የወላጅ ስልክ', 'መኖሪያ አካባቢ', 'ህብረት/መንደር', 'ማስታወሻ'];
     const sampleRows = [
-      ['ዮናታን ዳዊት', 'ወ', 2, 'ዳዊት ታደሰ', '0911223344', 'ቀበሌ 01', 'ቤቴል ህብረት', 'ጨቅላ ህፃን'],
-      ['ሩት ተስፋዬ', 'ሴ', 5, 'ተስፋዬ በቀለ', '0922334455', 'ቀበሌ 02', 'ሰላም ህብረት', ''],
-      ['አማኑኤል መሠረት', 'ወ', 8, 'መሠረት ሌቃ', '0933445566', 'ቀበሌ 01', 'አማኑኤል ህብረት', ''],
-      ['ራሔል አሸናፊ', 'ሴ', 11, 'አሸናፊ ጫፋ', '0944556677', 'ቀበሌ 03', 'ጽዮን ህብረት', ''],
-      ['ዳዊት መስፍን', 'ወ', 14, 'መስፍን ማንጁራ', '0955667788', 'መንደር 1', 'ቤቴል ህብረት', '']
+      ['ዮናታን ዳዊት', 'ወ', 2, 'ዋናው ማዕከል ቻፕል', 'ዳዊት ታደሰ', '0911223344', 'ቀበሌ 01', 'ቤቴል ህብረት', 'ጨቅላ ህፃን'],
+      ['ሩት ተስፋዬ', 'ሴ', 5, 'ሰላም ቻፕል', 'ተስፋዬ በቀለ', '0922334455', 'ቀበሌ 02', 'ሰላም ህብረት', ''],
+      ['አማኑኤል መሠረት', 'ወ', 8, 'ቤቴል ቻፕል', 'መሠረት ሌቃ', '0933445566', 'ቀበሌ 01', 'አማኑኤል ህብረት', ''],
+      ['ራሔል አሸናፊ', 'ሴ', 11, 'ሰላም ቻፕል', 'አሸናፊ ጫፋ', '0944556677', 'ቀበሌ 03', 'ጽዮን ህብረት', ''],
+      ['ዳዊት መስፍን', 'ወ', 14, 'ዋናው ማዕከል ቻፕል', 'መስፍን ማንጁራ', '0955667788', 'መንደር 1', 'ቤቴል ህብረት', '']
     ];
     downloadXLSX([headers, ...sampleRows], 'የልጆች_መረጃ_መሙያ_ናሙና.xlsx', 'የልጆች መረጃ');
   };
@@ -463,6 +529,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         let nameIdx = -1;
         let genderIdx = -1;
         let ageIdx = -1;
+        let chapelIdx = -1;
         let parentIdx = -1;
         let phoneIdx = -1;
         let residenceIdx = -1;
@@ -473,6 +540,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
           if (str.includes('ስም') && !str.includes('ወላጅ') && !str.includes('አባት')) nameIdx = idx;
           if (str.includes('ጾታ') || str.includes('gender')) genderIdx = idx;
           if (str.includes('ዕድሜ') || str.includes('age')) ageIdx = idx;
+          if (str.includes('ቻፕል') || str.includes('chapel') || str.includes('አጥቢያ')) chapelIdx = idx;
           if (str.includes('ወላጅ') || str.includes('አባት') || str.includes('parent')) parentIdx = idx;
           if (str.includes('ስልክ') || str.includes('phone')) phoneIdx = idx;
           if (str.includes('መኖሪያ') || str.includes('ቀበሌ') || str.includes('አካባቢ') || str.includes('መንደር')) residenceIdx = idx;
@@ -496,6 +564,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
           const rawGender = String(row[genderIdx] || '').trim();
           const gender = rawGender.startsWith('ሴ') || rawGender.toLowerCase().startsWith('f') ? 'ሴ' : 'ወ';
           const age = parseInt(String(row[ageIdx] || '5'), 10) || 5;
+          const chapel = chapelIdx !== -1 && row[chapelIdx] ? String(row[chapelIdx]).trim() : chapelList[0] || 'ዋናው ማዕከል ቻፕል';
           const parentName = parentIdx !== -1 && row[parentIdx] ? String(row[parentIdx]).trim() : undefined;
           const phone = phoneIdx !== -1 && row[phoneIdx] ? String(row[phoneIdx]).trim() : undefined;
           const residence = residenceIdx !== -1 && row[residenceIdx] ? String(row[residenceIdx]).trim() : undefined;
@@ -505,6 +574,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
             name: rawName,
             gender,
             age,
+            chapel,
             parentName,
             phone,
             residence,
@@ -539,7 +609,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         <h1 className="text-xl font-black text-slate-900">የብርብር ከተማ ቃለ ሕይወት ቤተክርስቲያን</h1>
         <h2 className="text-base font-bold text-slate-800">የልጆች አገልግሎት ዘርፍ</h2>
         <h3 className="text-sm font-semibold text-slate-700 mt-1">
-          የቤተክርስቲያኒቱ አጠቃላይ የልጆች መረጃ ቋት እና የዕድሜ ምድብ ሪፖርት ({currentYear} ዓ.ም)
+          የቤተክርስቲያኒቱ ልጆች የመረጃ ቋት እና የሰንበት ት/ቤት የመማር ሁኔታ ሪፖርት ({currentYear} ዓ.ም)
         </h3>
         <p className="text-xs text-slate-500 mt-0.5">የታተመበት ቀን፦ {new Date().toLocaleDateString('en-CA')}</p>
       </div>
@@ -557,7 +627,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                   የቤተክርስቲያኒቱ አጠቃላይ የልጆች መረጃ ቋት
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  የልጆች ቆጠራ፣ የዕድሜ ምድቦች ስታትስቲክስ እና ከሰንበት ትምህርት ቤት ተማሪዎች ጋር ማገናኛ ማዕከል
+                  ከሰንበት ት/ቤት ጋር በስም በማገናኘት የሚማሩና የማይማሩትን፣ ቻፕላቸውን እና የወላጅ ስልክ ቁጥር ማስተባበሪያ
                 </p>
               </div>
             </div>
@@ -687,6 +757,71 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         </div>
       </div>
 
+      {/* Chapel Breakdown Strip: Direct Chapel connection requested by user */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 gap-2">
+          <div>
+            <h3 className="text-sm font-extrabold text-slate-900 flex items-center gap-2">
+              <Church className="w-4 h-4 text-blue-900" />
+              <span>የቻፕሎች (አጥቢያዎች) የመማር ሁኔታ ማጠቃለያ</span>
+            </h3>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              በየቻፕሉ ያሉ ልጆች፣ የሚማሩ፣ የማይማሩ እና የወላጅ ስልክ መገናኛ ማዕከል (በቻፕሉ ላይ ጠቅ በማድረግ አጣራ)
+            </p>
+          </div>
+          {selectedChapelFilter !== 'all' && (
+            <button
+              type="button"
+              onClick={() => setSelectedChapelFilter('all')}
+              className="text-xs font-bold text-blue-700 hover:text-blue-900 bg-blue-50 px-2.5 py-1 rounded-lg transition self-start print:hidden"
+            >
+              ✕ የቻፕል ማጣሪያ አጽዳ ({selectedChapelFilter})
+            </button>
+          )}
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          {chapelStats.chapels.map((ch) => {
+            const st = chapelStats.statsMap[ch];
+            const isSelected = selectedChapelFilter === ch;
+            const rate = st.total > 0 ? Math.round((st.enrolled / st.total) * 100) : 0;
+
+            return (
+              <div
+                key={`chapel_stat_${ch}`}
+                onClick={() => setSelectedChapelFilter(isSelected ? 'all' : ch)}
+                className={`p-3 rounded-xl border cursor-pointer transition text-left ${
+                  isSelected
+                    ? 'border-blue-900 bg-blue-50/80 ring-2 ring-blue-800/30'
+                    : 'border-slate-200 hover:border-slate-300 bg-slate-50/50 hover:bg-slate-50'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <h4 className="font-extrabold text-xs text-slate-900 truncate" title={ch}>
+                    {ch}
+                  </h4>
+                  {isSelected && <span className="text-[10px] text-blue-800 font-bold">✓</span>}
+                </div>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="text-lg font-black text-slate-900 tabular-nums">{st.total}</span>
+                  <span className="text-[10px] text-slate-500 font-semibold">{rate}% ይማራሉ</span>
+                </div>
+                <div className="mt-1 flex items-center justify-between text-[11px] font-semibold pt-1 border-t border-slate-200/60">
+                  <span className="text-emerald-700 flex items-center gap-0.5">
+                    <span>✓</span>
+                    <span>{st.enrolled}</span>
+                  </span>
+                  <span className="text-amber-800 flex items-center gap-0.5">
+                    <span>✕</span>
+                    <span>{st.notEnrolled}</span>
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Age Cohorts Matrix Table (0-3, 4-6, 7-9, 10-12, 13-14) */}
       <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-3.5 border-b border-slate-100 gap-2">
@@ -696,7 +831,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
               <span>የልጆች የዕድሜ ምድቦች ስታቲስቲክስ (ከ0-3፣ ከ4-6፣ ከ7-9፣ ከ10-12 እና ከ13-14)</span>
             </h3>
             <p className="text-[11px] text-slate-500 mt-0.5">
-              በተጠየቀው መሰረት በዕድሜ ምድብ፣ በጾታ (ወንድ/ሴት) እና በሰንበት ት/ቤት የመማር ሁኔታ የተተነተነ ማጠቃለያ
+              በዕድሜ ምድብ፣ በጾታ (ወንድ/ሴት) እና በሰንበት ት/ቤት የመማር ሁኔታ የተተነተነ ማጠቃለያ
             </p>
           </div>
           {ageFilter !== 'all' && (
@@ -857,7 +992,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
               }`}
             >
               <AlertCircle className="w-3.5 h-3.5" />
-              <span>የማይማሩ (ያልተመዘገቡ)</span>
+              <span>የማይማሩ (ክትትል & ስልክ)</span>
               <span className="text-[11px] px-1.5 py-0.2 rounded-full bg-amber-100 text-amber-900">
                 {demographicStats.totalNotEnrolled}
               </span>
@@ -897,26 +1032,43 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
       {/* Search and Column Filter Strip (for church children views) */}
       {viewFilter !== 'missing_from_church' && (
         <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-sm print:hidden">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Search Input */}
             <div className="relative">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
-                placeholder="በልጅ ስም፣ ወላጅ፣ ስልክ፣ መኖሪያ ፈልግ..."
+                placeholder="በልጅ ስም፣ ወላጅ፣ ስልክ፣ ቻፕል..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50 focus:bg-white"
               />
             </div>
 
+            {/* Chapel Filter Dropdown */}
+            <div className="flex items-center gap-1.5">
+              <Church className="w-4 h-4 text-slate-400 shrink-0" />
+              <select
+                value={selectedChapelFilter}
+                onChange={(e) => setSelectedChapelFilter(e.target.value)}
+                className="w-full py-2 px-2.5 text-xs border border-slate-200 rounded-xl bg-white font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+              >
+                <option value="all">ሁሉም ቻፕሎች (አጥቢያዎች)</option>
+                {chapelStats.chapels.map((ch) => (
+                  <option key={`opt_ch_${ch}`} value={ch}>
+                    {ch}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Age Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500 shrink-0">ዕድሜ፦</span>
+            <div className="flex items-center gap-1.5">
+              <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
               <select
                 value={ageFilter}
                 onChange={(e) => setAgeFilter(e.target.value as AgeFilter)}
-                className="w-full py-2 px-3 text-xs border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full py-2 px-2.5 text-xs border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <option value="all">ሁሉም የዕድሜ ምድቦች</option>
                 <option value="0-3">ከ0 - 3 ዓመት (ጨቅላና ህፃናት)</option>
@@ -929,12 +1081,12 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
             </div>
 
             {/* Gender Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold text-slate-500 shrink-0">ጾታ፦</span>
+            <div className="flex items-center gap-1.5">
+              <User className="w-4 h-4 text-slate-400 shrink-0" />
               <select
                 value={genderFilter}
                 onChange={(e) => setGenderFilter(e.target.value)}
-                className="w-full py-2 px-3 text-xs border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
+                className="w-full py-2 px-2.5 text-xs border border-slate-200 rounded-xl bg-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-600"
               >
                 <option value="all">ሁሉም ጾታ (ወንድና ሴት)</option>
                 <option value="ወ">ወንድ ብቻ</option>
@@ -944,16 +1096,17 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
 
             {/* Reset / Count Indicator */}
             <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-600">
-              <span>የተገኙ ልጆች፦ <strong className="text-blue-900 font-extrabold">{filteredChildren.length}</strong></span>
-              {(searchTerm || ageFilter !== 'all' || genderFilter !== 'all') && (
+              <span>የተገኙ፦ <strong className="text-blue-900 font-extrabold">{filteredChildren.length}</strong></span>
+              {(searchTerm || ageFilter !== 'all' || genderFilter !== 'all' || selectedChapelFilter !== 'all') && (
                 <button
                   type="button"
                   onClick={() => {
                     setSearchTerm('');
                     setAgeFilter('all');
                     setGenderFilter('all');
+                    setSelectedChapelFilter('all');
                   }}
-                  className="text-rose-600 hover:text-rose-800 hover:underline"
+                  className="text-rose-600 hover:text-rose-800 hover:underline font-bold"
                 >
                   አጽዳ
                 </button>
@@ -963,7 +1116,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
         </div>
       )}
 
-      {/* Main Table: Church Children List */}
+      {/* Main Table: Church Children List with Direct Sunday School Link, Chapel, and Parent Phone */}
       {viewFilter !== 'missing_from_church' ? (
         <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden print:border-none print:shadow-none print:rounded-none">
           <div className="overflow-x-auto print:overflow-visible">
@@ -971,20 +1124,21 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
               <thead>
                 <tr className="bg-slate-900 text-white uppercase text-[11px] tracking-wider print:bg-slate-800 print:text-white">
                   <th className="py-3 px-3 text-center w-12 font-bold">ተ.ቁ</th>
-                  <th className="py-3 px-4 font-extrabold text-[13pt] text-white min-w-[220px]">የልጁ ሙሉ ስም</th>
+                  <th className="py-3 px-4 font-extrabold text-[13pt] text-white min-w-[210px]">የልጁ ሙሉ ስም</th>
+                  <th className="py-3 px-3 font-bold min-w-[140px]">ቻፕል (አጥቢያ)</th>
                   <th className="py-3 px-3 text-center font-bold w-16">ጾታ</th>
                   <th className="py-3 px-3 text-center font-bold w-16">ዕድሜ</th>
+                  <th className="py-3 px-3 font-bold min-w-[160px]">የሰንበት ት/ቤት የመማር ሁኔታ</th>
                   <th className="py-3 px-3 font-bold min-w-[150px]">የወላጅ/አሳዳጊ ስም</th>
-                  <th className="py-3 px-3 font-bold min-w-[120px]">ስልክ ቁጥር</th>
-                  <th className="py-3 px-3 font-bold min-w-[140px]">መኖሪያ ቀበሌ/መንደር</th>
-                  <th className="py-3 px-3 font-bold min-w-[160px]">የሰንበት ት/ቤት ሁኔታ</th>
+                  <th className="py-3 px-3 font-bold min-w-[150px]">የወላጅ ስልክ ቁጥር</th>
+                  <th className="py-3 px-3 font-bold min-w-[130px]">መኖሪያ ቀበሌ</th>
                   <th className="py-3 px-3 text-center font-bold w-24 print:hidden">እርምጃዎች</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200">
                 {filteredChildren.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="py-12 text-center text-slate-500">
+                    <td colSpan={10} className="py-12 text-center text-slate-500">
                       <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                       <p className="font-semibold text-sm">በተመረጠው መስፈርት የተገኘ ልጅ የለም!</p>
                       <p className="text-xs text-slate-400 mt-1">የፍለጋ ቃሉን ወይም ማጣሪያውን ይቀይሩ ወይም አዲስ ልጅ ይመዝግቡ።</p>
@@ -994,6 +1148,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                   filteredChildren.map((child, idx) => {
                     const isMale = child.gender === 'ወ';
                     const isFemale = child.gender === 'ሴ';
+                    const isCopied = copiedPhoneId === child.id;
 
                     return (
                       <tr
@@ -1006,8 +1161,16 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                         </td>
 
                         {/* Child Name (13pt Bold) */}
-                        <td className="py-2.5 px-4 font-bold text-[13pt] text-slate-900 min-w-[220px] leading-normal">
+                        <td className="py-2.5 px-4 font-bold text-[13pt] text-slate-900 min-w-[210px] leading-normal">
                           <span>{child.name}</span>
+                        </td>
+
+                        {/* Chapel */}
+                        <td className="py-2.5 px-3">
+                          <span className="inline-flex items-center gap-1 font-bold text-[11px] text-blue-900 bg-blue-50/80 px-2.5 py-0.5 rounded-lg border border-blue-200/80 print:border-none print:bg-transparent print:p-0">
+                            <Church className="w-3 h-3 text-blue-700 print:hidden shrink-0" />
+                            <span>{child.chapel || 'ዋናው ማዕከል ቻፕል'}</span>
+                          </span>
                         </td>
 
                         {/* Gender */}
@@ -1030,39 +1193,17 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                           {child.age ? `${child.age} ዓመት` : '-'}
                         </td>
 
-                        {/* Parent / Guardian Name */}
-                        <td className="py-2.5 px-3 text-slate-700">
-                          {child.parentName || '-'}
-                        </td>
-
-                        {/* Phone */}
-                        <td className="py-2.5 px-3 text-slate-600 font-mono text-[11px]">
-                          {child.phone ? (
-                            <span className="flex items-center gap-1">
-                              <Phone className="w-3 h-3 text-slate-400 print:hidden" />
-                              <span>{child.phone}</span>
-                            </span>
-                          ) : (
-                            '-'
-                          )}
-                        </td>
-
-                        {/* Residence */}
-                        <td className="py-2.5 px-3 text-slate-600">
-                          {child.residence || child.fellowshipOrVillage || '-'}
-                        </td>
-
                         {/* Sunday School Enrollment Status */}
                         <td className="py-2.5 px-3">
                           {child.isEnrolled ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200/80 font-bold text-[11px] print:border-none print:bg-transparent print:p-0">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-600 print:hidden" />
+                              <CheckCircle2 className="w-3 h-3 text-emerald-600 print:hidden shrink-0" />
                               <span>ይማራል ({child.enrolledClass})</span>
                             </span>
                           ) : (
                             <div className="flex items-center gap-2">
                               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 font-bold text-[11px] print:border-none print:bg-transparent print:p-0">
-                                <AlertCircle className="w-3 h-3 text-amber-600 print:hidden" />
+                                <AlertCircle className="w-3 h-3 text-amber-600 print:hidden shrink-0" />
                                 <span>አይማርም</span>
                               </span>
                               <button
@@ -1079,6 +1220,46 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                               </button>
                             </div>
                           )}
+                        </td>
+
+                        {/* Parent / Guardian Name */}
+                        <td className="py-2.5 px-3 text-slate-700 font-medium">
+                          {child.parentName || '-'}
+                        </td>
+
+                        {/* Parent Phone Number with Quick Call & Copy */}
+                        <td className="py-2.5 px-3 text-slate-800 font-mono text-[11px]">
+                          {child.phone ? (
+                            <div className="flex items-center gap-1.5">
+                              <a
+                                href={`tel:${child.phone}`}
+                                className="inline-flex items-center gap-1 font-bold text-emerald-800 hover:text-emerald-950 hover:underline bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200 print:border-none print:bg-transparent print:p-0"
+                                title="ደውል"
+                              >
+                                <PhoneCall className="w-3 h-3 text-emerald-600 print:hidden shrink-0" />
+                                <span>{child.phone}</span>
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyPhone(child.id, child.phone!)}
+                                className="p-1 hover:bg-slate-200 text-slate-500 rounded print:hidden transition"
+                                title="ስልክ ቅዳ"
+                              >
+                                {isCopied ? (
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3.5 h-3.5 text-slate-400" />
+                                )}
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-slate-400 italic text-[11px]">- ስልክ የለም -</span>
+                          )}
+                        </td>
+
+                        {/* Residence */}
+                        <td className="py-2.5 px-3 text-slate-600">
+                          {child.residence || child.fellowshipOrVillage || '-'}
                         </td>
 
                         {/* Actions */}
@@ -1229,8 +1410,26 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                   placeholder="ምሳሌ፦ ዮናታን ዳዊት ታደሰ"
                   value={formName}
                   onChange={(e) => setFormName(e.target.value)}
-                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600"
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-bold text-slate-900"
                 />
+              </div>
+
+              {/* Chapel Selection */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  ቻፕል (አጥቢያ ማዕከል) <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  value={formChapel}
+                  onChange={(e) => setFormChapel(e.target.value)}
+                  className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 bg-white font-bold text-slate-900"
+                >
+                  {chapelList.map((ch) => (
+                    <option key={`ch_opt_${ch}`} value={ch}>
+                      {ch}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Gender and Age */}
@@ -1256,7 +1455,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                     required
                     value={formAge}
                     onChange={(e) => setFormAge(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 tabular-nums"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 tabular-nums font-bold"
                   />
                 </div>
               </div>
@@ -1275,13 +1474,15 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">ስልክ ቁጥር</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    የወላጅ ስልክ ቁጥር
+                  </label>
                   <input
                     type="tel"
                     placeholder="09..."
                     value={formPhone}
                     onChange={(e) => setFormPhone(e.target.value)}
-                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-mono"
+                    className="w-full px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-600 font-mono font-bold"
                   />
                 </div>
               </div>
@@ -1368,8 +1569,16 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                   የልጁ ስም፦ <strong className="font-extrabold text-[13pt] text-slate-900 block mt-0.5">{enrollTargetChild.name}</strong>
                 </p>
                 <p>
+                  ቻፕል፦ <strong className="text-blue-900 font-bold">{enrollTargetChild.chapel || 'ዋናው ማዕከል ቻፕል'}</strong>
+                </p>
+                <p>
                   ጾታ፦ <strong>{enrollTargetChild.gender === 'ወ' ? 'ወንድ' : 'ሴት'}</strong> · ዕድሜ፦ <strong>{enrollTargetChild.age || '-'} ዓመት</strong>
                 </p>
+                {enrollTargetChild.phone && (
+                  <p>
+                    የወላጅ ስልክ፦ <strong className="font-mono text-emerald-900">{enrollTargetChild.phone}</strong>
+                  </p>
+                )}
               </div>
 
               <div>
@@ -1443,7 +1652,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                 <div className="space-y-0.5">
                   <p className="font-bold text-slate-800">ትክክለኛውን የExcel ቅጽ ይጠቀሙ</p>
                   <p className="text-slate-500 text-[11px]">
-                    የExcel ሰንጠረዡ የልጁ ስም፣ ጾታ፣ ዕድሜ፣ የወላጅ ስም እና ስልክ አምዶችን መያዝ አለበት።
+                    የExcel ሰንጠረዡ የልጁ ስም፣ ጾታ፣ ዕድሜ፣ ቻፕል፣ የወላጅ ስም እና ስልክ አምዶችን መያዝ ይችላል።
                   </p>
                 </div>
                 <button
@@ -1487,6 +1696,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                         <tr>
                           <th className="py-2 px-2 text-center w-8">#</th>
                           <th className="py-2 px-3">ስም</th>
+                          <th className="py-2 px-2">ቻፕል</th>
                           <th className="py-2 px-2 text-center">ጾታ</th>
                           <th className="py-2 px-2 text-center">ዕድሜ</th>
                           <th className="py-2 px-3">ወላጅ</th>
@@ -1498,6 +1708,7 @@ export const ChurchChildrenTab: React.FC<ChurchChildrenTabProps> = ({
                           <tr key={`imp_${idx}`} className="hover:bg-slate-50">
                             <td className="py-1.5 px-2 text-center text-slate-400">{idx + 1}</td>
                             <td className="py-1.5 px-3 font-bold text-slate-900">{row.name}</td>
+                            <td className="py-1.5 px-2 text-blue-900 font-bold">{row.chapel || '-'}</td>
                             <td className="py-1.5 px-2 text-center font-bold">{row.gender}</td>
                             <td className="py-1.5 px-2 text-center tabular-nums">{row.age}</td>
                             <td className="py-1.5 px-3 text-slate-600">{row.parentName || '-'}</td>

@@ -24,6 +24,9 @@ export interface Student {
   m7: number; // Max 30
   total?: number;
   rank?: number;
+  chapel?: string; // ቻፕል
+  parentName?: string; // የወላጅ ስም
+  phone?: string; // የወላጅ ስልክ
 }
 
 export interface AbsenteeRecord {
@@ -97,8 +100,9 @@ export interface ChurchChild {
   name: string; // የልጁ ሙሉ ስም
   gender: 'ወ' | 'ሴ' | string; // ጾታ
   age: number | string; // ዕድሜ
+  chapel?: string; // ቻፕል / አጥቢያ ማዕከል
   parentName?: string; // የወላጅ/አሳዳጊ ስም
-  phone?: string; // ስልክ ቁጥር
+  phone?: string; // የወላጅ ስልክ ቁጥር
   residence?: string; // መኖሪያ ቀበሌ/መንደር/ሰፈር
   fellowshipOrVillage?: string; // የህብረት/የቡድን ስም ወይም መንደር
   isBaptized?: boolean; // የተጠመቀ/ች (አማራጭ)
@@ -130,6 +134,7 @@ export interface AppData {
       [className: string]: Student[];
     };
   };
+  chapels?: string[];
   churchChildren?: ChurchChild[];
 }
 

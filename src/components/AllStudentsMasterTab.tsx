@@ -18,10 +18,15 @@ import {
   ChevronRight,
   RefreshCw,
   Check,
-  X
+  X,
+  Church,
+  Phone,
+  PhoneCall,
+  Copy
 } from 'lucide-react';
-import { Student, Teacher, ChoirMember, SpiritualMember, Role } from '../types';
+import { Student, Teacher, ChoirMember, SpiritualMember, Role, ChurchChild } from '../types';
 import { downloadCSV, downloadXLSX } from '../utils/csv';
+import { DEFAULT_CHAPELS } from '../constants/initialData';
 
 interface AllStudentsMasterTabProps {
   currentYear: string;
@@ -30,6 +35,8 @@ interface AllStudentsMasterTabProps {
   studentsByClass: { [className: string]: Student[] };
   choirMembers: ChoirMember[];
   spiritualMembers: SpiritualMember[];
+  churchChildren?: ChurchChild[];
+  chapelList?: string[];
   onUpdateStudent: (student: Student) => void;
   onAddStudentToClass: (targetClass: string, student: Omit<Student, 'id'>) => void;
   onDeleteStudent: (studentId: number | string) => void;
@@ -45,6 +52,9 @@ interface EnrichedStudent extends Student {
   spiritualGroup?: string;
   hasScore: boolean;
   totalScore: number;
+  chapel?: string;
+  parentName?: string;
+  parentPhone?: string;
 }
 
 export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
@@ -54,6 +64,8 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
   studentsByClass,
   choirMembers,
   spiritualMembers,
+  churchChildren = [],
+  chapelList = DEFAULT_CHAPELS,
   onUpdateStudent,
   onAddStudentToClass,
   onDeleteStudent,
@@ -63,11 +75,20 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedClassFilter, setSelectedClassFilter] = useState<string>('all');
+  const [selectedChapelFilter, setSelectedChapelFilter] = useState<string>('all');
   const [selectedGenderFilter, setSelectedGenderFilter] = useState<string>('all');
   const [selectedServiceFilter, setSelectedServiceFilter] = useState<'all' | 'choir' | 'spiritual' | 'both'>('all');
   const [sortBy, setSortBy] = useState<'class' | 'name' | 'score' | 'age'>('class');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const [isPrinting, setIsPrinting] = useState(false);
+  const [copiedPhoneId, setCopiedPhoneId] = useState<string | number | null>(null);
+
+  const handleCopyPhone = (id: string | number, phone: string) => {
+    if (!phone || phone === '-') return;
+    navigator.clipboard.writeText(phone);
+    setCopiedPhoneId(id);
+    setTimeout(() => setCopiedPhoneId(null), 2000);
+  };
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -125,14 +146,40 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
       if (t.assignedClass) teacherMap.set(t.assignedClass, t.name);
     });
 
+    // Cross-reference map from Church Children database
+    const normalizeAmharic = (str: string) =>
+      (str || '')
+        .trim()
+        .toLowerCase()
+        .replace(/\s+/g, ' ')
+        .replace(/[ሐኀ]/g, 'ሀ')
+        .replace(/ሠ/g, 'ሰ')
+        .replace(/ፀ/g, 'ጸ')
+        .replace(/ዐ/g, 'አ');
+
+    const churchChildMap = new Map<string, ChurchChild>();
+    (churchChildren || []).forEach((c) => {
+      if (c.name) {
+        churchChildMap.set(c.name.trim().toLowerCase(), c);
+        churchChildMap.set(normalizeAmharic(c.name), c);
+      }
+    });
+
     allClasses.forEach((cName) => {
       const list = studentsByClass[cName] || [];
       const teacherName = teacherMap.get(cName) || 'ልዩ አልተመደበም';
 
       list.forEach((s) => {
         const cleanName = (s.name || '').trim().toLowerCase();
+        const normName = normalizeAmharic(s.name);
         const choirGroup = choirMap.get(cleanName);
         const spiritualGroup = spiritualMap.get(cleanName);
+
+        // Lookup from Church Children repository
+        const matchedChild = churchChildMap.get(cleanName) || churchChildMap.get(normName);
+        const chapel = s.chapel || matchedChild?.chapel || 'ዋናው ማዕከል ቻፕል';
+        const parentName = s.parentName || matchedChild?.parentName || '-';
+        const parentPhone = s.phone || matchedChild?.phone || '-';
 
         const m1 = Number(s.m1) || 0;
         const m2 = Number(s.m2) || 0;
@@ -151,13 +198,16 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
           choirGroup,
           spiritualGroup,
           hasScore,
-          totalScore
+          totalScore,
+          chapel,
+          parentName,
+          parentPhone
         });
       });
     });
 
     return result;
-  }, [allClasses, studentsByClass, teachers, choirMembers, spiritualMembers]);
+  }, [allClasses, studentsByClass, teachers, choirMembers, spiritualMembers, churchChildren]);
 
   // High-level statistics
   const stats = useMemo(() => {
@@ -224,6 +274,11 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
       result = result.filter((s) => !!s.choirGroup && !!s.spiritualGroup);
     }
 
+    // Filter by Chapel
+    if (selectedChapelFilter !== 'all') {
+      result = result.filter((s) => (s.chapel || 'ዋናው ማዕከል ቻፕል') === selectedChapelFilter);
+    }
+
     // Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
@@ -232,6 +287,9 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
           (s.name && s.name.toLowerCase().includes(q)) ||
           (s.className && s.className.toLowerCase().includes(q)) ||
           (s.teacherName && s.teacherName.toLowerCase().includes(q)) ||
+          (s.chapel && s.chapel.toLowerCase().includes(q)) ||
+          (s.parentPhone && s.parentPhone.toLowerCase().includes(q)) ||
+          (s.parentName && s.parentName.toLowerCase().includes(q)) ||
           (s.choirGroup && s.choirGroup.toLowerCase().includes(q)) ||
           (s.spiritualGroup && s.spiritualGroup.toLowerCase().includes(q))
       );
@@ -261,7 +319,7 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
     });
 
     return result;
-  }, [allMasterStudents, selectedClassFilter, selectedGenderFilter, selectedServiceFilter, searchQuery, sortBy, sortOrder, classList]);
+  }, [allMasterStudents, selectedClassFilter, selectedGenderFilter, selectedServiceFilter, selectedChapelFilter, searchQuery, sortBy, sortOrder, classList]);
 
   // When printing, we include all filtered students (or all students if search was clear)
   const studentsToRender = useMemo(() => {
@@ -347,6 +405,9 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
       'ተ.ቁ',
       'የተማሪው ሙሉ ስም',
       'ክፍል / ደረጃ',
+      'ቻፕል (አጥቢያ ማዕከል)',
+      'የወላጅ ስም',
+      'የወላጅ ስልክ ቁጥር',
       'ጾታ',
       'ዕድሜ',
       'የክፍሉ መምህር',
@@ -366,6 +427,9 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
       idx + 1,
       s.name,
       s.className,
+      s.chapel || 'ዋናው ማዕከል ቻፕል',
+      s.parentName || '-',
+      s.parentPhone || '-',
       s.gender === 'ወ' ? 'ወንድ' : s.gender === 'ሴ' ? 'ሴት' : '-',
       s.age || '-',
       s.teacherName,
@@ -387,10 +451,10 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
 
   // Export to CSV
   const handleExportCSV = () => {
-    let csv = `\uFEFFተ.ቁ,የተማሪው ሙሉ ስም,ክፍል,ጾታ,ዕድሜ,መምህር,ጠቅላላ ውጤት,መዘምራን ቡድን,መንፈሳዊ ቡድን\n`;
+    let csv = `\uFEFFተ.ቁ,የተማሪው ሙሉ ስም,ክፍል,ቻፕል,የወላጅ ስም,የወላጅ ስልክ,ጾታ,ዕድሜ,መምህር,ጠቅላላ ውጤት,መዘምራን ቡድን,መንፈሳዊ ቡድን\n`;
     filteredStudents.forEach((s, idx) => {
       const g = s.gender === 'ወ' ? 'ወንድ' : s.gender === 'ሴ' ? 'ሴት' : '-';
-      csv += `${idx + 1},"${s.name}","${s.className}","${g}","${s.age || '-'}","${s.teacherName}",${s.totalScore ?? 0},"${s.choirGroup || '-'}","${s.spiritualGroup || '-'}"\n`;
+      csv += `${idx + 1},"${s.name}","${s.className}","${s.chapel || 'ዋናው ማዕከል ቻፕል'}","${s.parentName || '-'}","${s.parentPhone || '-'}","${g}","${s.age || '-'}","${s.teacherName}",${s.totalScore ?? 0},"${s.choirGroup || '-'}","${s.spiritualGroup || '-'}"\n`;
     });
     downloadCSV(csv, `የብርብር_ቃለሕይወት_ጠቅላላ_ተማሪዎች_ማስተር_${currentYear}ዓም.csv`);
   };
@@ -676,6 +740,25 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
               </select>
             </div>
 
+            {/* Chapel Dropdown */}
+            <div>
+              <select
+                value={selectedChapelFilter}
+                onChange={(e) => setSelectedChapelFilter(e.target.value)}
+                className="bg-slate-50 border border-slate-300 text-slate-800 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-blue-600"
+              >
+                <option value="all">ሁሉም ቻፕል / አጥቢያ ({stats.total})</option>
+                {chapelList.map((ch) => {
+                  const count = allMasterStudents.filter((s) => (s.chapel || 'ዋናው ማዕከል ቻፕል') === ch).length;
+                  return (
+                    <option key={ch} value={ch}>
+                      {ch} ({count} ተማሪዎች)
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
             {/* Gender Dropdown */}
             <div>
               <select
@@ -730,31 +813,37 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
         </div>
 
         {/* Filter Results Summary */}
-        <div className="flex items-center justify-between text-xs text-slate-500 mt-3 pt-3 border-t border-slate-100">
-          <div>
-            የተገኙ ተማሪዎች ድምር፦ <span className="font-bold text-slate-900">{filteredStudents.length}</span> (ከጠቅላላው {stats.total})
+        <div className="flex items-center justify-between text-xs text-slate-500 mt-3 pt-3 border-t border-slate-100 flex-wrap gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span>የተገኙ ተማሪዎች ድምር፦ <strong className="text-slate-900">{filteredStudents.length}</strong> (ከጠቅላላው {stats.total})</span>
             {selectedClassFilter !== 'all' && (
-              <span className="ml-2 bg-blue-100 text-blue-900 px-2 py-0.5 rounded-md font-semibold">
+              <span className="bg-blue-100 text-blue-900 px-2 py-0.5 rounded-md font-semibold text-[11px]">
                 ክፍል፦ {selectedClassFilter}
               </span>
             )}
+            {selectedChapelFilter !== 'all' && (
+              <span className="bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md font-semibold text-[11px]">
+                ቻፕል፦ {selectedChapelFilter}
+              </span>
+            )}
             {selectedGenderFilter !== 'all' && (
-              <span className="ml-2 bg-purple-100 text-purple-900 px-2 py-0.5 rounded-md font-semibold">
+              <span className="bg-purple-100 text-purple-900 px-2 py-0.5 rounded-md font-semibold text-[11px]">
                 ጾታ፦ {selectedGenderFilter === 'ወ' ? 'ወንድ' : selectedGenderFilter === 'ሴ' ? 'ሴት' : '-'}
               </span>
             )}
           </div>
 
-          {(selectedClassFilter !== 'all' || selectedGenderFilter !== 'all' || selectedServiceFilter !== 'all' || searchQuery) && (
+          {(selectedClassFilter !== 'all' || selectedChapelFilter !== 'all' || selectedGenderFilter !== 'all' || selectedServiceFilter !== 'all' || searchQuery) && (
             <button
               type="button"
               onClick={() => {
                 setSelectedClassFilter('all');
+                setSelectedChapelFilter('all');
                 setSelectedGenderFilter('all');
                 setSelectedServiceFilter('all');
                 setSearchQuery('');
               }}
-              className="text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1"
+              className="text-rose-600 hover:text-rose-800 font-bold flex items-center gap-1 text-xs ml-auto"
             >
               <RefreshCw className="w-3 h-3" />
               <span>ማጣሪያዎችን አጽዳ</span>
@@ -770,8 +859,10 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
             <thead>
               <tr className="bg-slate-900 text-white uppercase text-[11px] tracking-wider print:bg-slate-800 print:text-white">
                 <th className="py-3 px-3 text-center w-12 font-bold">ተ.ቁ</th>
-                <th className="py-3 px-4 font-extrabold text-[13pt] text-white min-w-[220px]">የተማሪው ሙሉ ስም</th>
-                <th className="py-3 px-3 font-bold min-w-[120px]">ክፍል / ደረጃ</th>
+                <th className="py-3 px-4 font-extrabold text-[13pt] text-white min-w-[200px]">የተማሪው ሙሉ ስም</th>
+                <th className="py-3 px-3 font-bold min-w-[110px]">ክፍል / ደረጃ</th>
+                <th className="py-3 px-3 font-bold min-w-[130px]">ቻፕል (አጥቢያ)</th>
+                <th className="py-3 px-3 font-bold min-w-[140px]">የወላጅ ስልክ</th>
                 <th className="py-3 px-3 text-center font-bold w-16">ጾታ</th>
                 <th className="py-3 px-3 text-center font-bold w-16">ዕድሜ</th>
                 <th className="py-3 px-3 font-bold min-w-[140px]">የክፍሉ መምህር</th>
@@ -784,7 +875,7 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
             <tbody className="divide-y divide-slate-200">
               {studentsToRender.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-12 text-center text-slate-500">
+                  <td colSpan={12} className="py-12 text-center text-slate-500">
                     <Users className="w-10 h-10 text-slate-300 mx-auto mb-2" />
                     <p className="font-semibold text-sm">ምንም የተመዘገበ ተማሪ አልተገኘም!</p>
                     <p className="text-xs text-slate-400 mt-1">የተመረጠውን ማጣሪያ ወይም የፍለጋ ቃል ያረጋግጡ።</p>
@@ -807,7 +898,7 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
                       </td>
 
                       {/* Student Name */}
-                      <td className="py-2.5 px-4 font-bold text-[13pt] text-slate-900 min-w-[220px] leading-normal">
+                      <td className="py-2.5 px-4 font-bold text-[13pt] text-slate-900 min-w-[200px] leading-normal">
                         <span>{student.name}</span>
                       </td>
 
@@ -816,6 +907,51 @@ export const AllStudentsMasterTab: React.FC<AllStudentsMasterTabProps> = ({
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-50 text-blue-900 border border-blue-200/80 font-bold text-[11px] print:border-none print:bg-transparent print:p-0">
                           {student.className}
                         </span>
+                      </td>
+
+                      {/* Chapel */}
+                      <td className="py-2.5 px-3">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-900 border border-emerald-200/80 font-bold text-[11px] print:border-none print:bg-transparent print:p-0">
+                          <Church className="w-3.5 h-3.5 text-emerald-700 shrink-0 print:hidden" />
+                          <span>{student.chapel || 'ዋናው ማዕከል ቻፕል'}</span>
+                        </span>
+                      </td>
+
+                      {/* Parent & Phone */}
+                      <td className="py-2.5 px-3">
+                        {student.parentPhone && student.parentPhone !== '-' ? (
+                          <div className="flex flex-col gap-0.5">
+                            {student.parentName && student.parentName !== '-' && (
+                              <span className="text-[10px] text-slate-500 font-semibold truncate max-w-[140px]">
+                                {student.parentName}
+                              </span>
+                            )}
+                            <div className="flex items-center gap-1">
+                              <a
+                                href={`tel:${student.parentPhone}`}
+                                className="inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 hover:text-blue-900 bg-blue-50/90 hover:bg-blue-100 px-2 py-0.5 rounded border border-blue-200/60 transition tabular-nums print:border-none print:bg-transparent print:p-0 print:text-black"
+                                title={`ወደ ${student.parentName || 'ወላጅ'} ደውል`}
+                              >
+                                <PhoneCall className="w-3 h-3 text-blue-600 shrink-0 print:hidden" />
+                                <span>{student.parentPhone}</span>
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => handleCopyPhone(`${student.className}-${student.id}`, student.parentPhone || '')}
+                                className="p-1 hover:bg-slate-200 rounded text-slate-400 hover:text-slate-700 transition print:hidden"
+                                title="ስልክ ቁጥር ቅዳ"
+                              >
+                                {copiedPhoneId === `${student.className}-${student.id}` ? (
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="text-slate-400 text-xs">-</span>
+                        )}
                       </td>
 
                       {/* Gender (Always - if empty, NEVER 'ባዶ') */}

@@ -231,6 +231,7 @@ export const loadStoredLocalData = (): AppData => {
       attendance: source.attendance || [],
       choirMembers: source.choirMembers || [],
       spiritualMembers: source.spiritualMembers || [],
+      chapels: (source.chapels && source.chapels.length > 0) ? source.chapels : INITIAL_APP_DATA.chapels || [],
       churchChildren: (source.churchChildren && source.churchChildren.length > 0) ? source.churchChildren : INITIAL_APP_DATA.churchChildren || []
     };
 
@@ -346,6 +347,7 @@ export const subscribeToAppData = (
         attendance: (val.attendance && val.attendance.length > 0) ? val.attendance : currentLocal.attendance,
         choirMembers: (val.choirMembers && val.choirMembers.length > 0) ? val.choirMembers : currentLocal.choirMembers,
         spiritualMembers: (val.spiritualMembers && val.spiritualMembers.length > 0) ? val.spiritualMembers : currentLocal.spiritualMembers,
+        chapels: (val.chapels && val.chapels.length > 0) ? val.chapels : currentLocal.chapels || [],
         churchChildren: (val.churchChildren && val.churchChildren.length > 0) ? val.churchChildren : currentLocal.churchChildren || [],
         years: (val.years && val.years.length > 0) ? val.years : currentLocal.years
       };

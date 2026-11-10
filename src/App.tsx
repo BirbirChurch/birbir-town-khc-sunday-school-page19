@@ -29,7 +29,7 @@ import {
   WeeklyAttendanceStatus,
   ChurchChild
 } from './types';
-import { CLASS_LIST, DEFAULT_ANNUAL_PLAN } from './constants/initialData';
+import { CLASS_LIST, DEFAULT_ANNUAL_PLAN, DEFAULT_CHAPELS } from './constants/initialData';
 import { subscribeToAppData, syncAppDataToFirebase, saveToLocalStorage, countStudentsInData, exportBackupJSON } from './services/firebase';
 import { generateUniqueId, sanitizeAndDeduplicateAppData } from './utils/idGenerator';
 import { Header } from './components/Header';
@@ -1002,6 +1002,8 @@ export default function App() {
                   studentsByClass={appData.students?.[currentYear] || {}}
                   choirMembers={appData.choirMembers || []}
                   spiritualMembers={appData.spiritualMembers || []}
+                  churchChildren={appData.churchChildren || []}
+                  chapelList={appData.chapels || DEFAULT_CHAPELS}
                   onUpdateStudent={handleUpdateStudent}
                   onAddStudentToClass={handleAddStudentToClass}
                   onDeleteStudent={handleDeleteStudent}
@@ -1019,6 +1021,7 @@ export default function App() {
                   currentYear={currentYear}
                   classList={CLASS_LIST}
                   churchChildren={appData.churchChildren || []}
+                  chapelList={appData.chapels || DEFAULT_CHAPELS}
                   studentsByClass={appData.students?.[currentYear] || {}}
                   onAddChild={handleAddChurchChild}
                   onUpdateChild={handleUpdateChurchChild}
